@@ -134,4 +134,16 @@ interface PlexServerApi {
         @Query("session") session: String,
         @Header("X-Plex-Token") token: String,
     ): retrofit2.Response<Unit>
+
+    /**
+     * Asks Plex to rescan a library section after files have been written into its folder over
+     * SMB/WebDAV. [path] narrows the scan to one folder (the server's Location path); omit it to
+     * rescan the whole section. See docs/plex-api.md "Uploading to the server".
+     */
+    @GET("library/sections/{key}/refresh")
+    suspend fun refreshSection(
+        @Path("key") sectionKey: String,
+        @Header("X-Plex-Token") token: String,
+        @Query("path") path: String? = null,
+    ): retrofit2.Response<Unit>
 }
