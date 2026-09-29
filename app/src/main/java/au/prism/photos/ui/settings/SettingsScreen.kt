@@ -90,7 +90,7 @@ fun SettingsScreen(
         LazyColumn(modifier = Modifier.padding(padding).fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item { SectionHeader("Account") }
             item { ListItem(headlineContent = { Text(session.user?.title ?: "Not signed in") }, supportingContent = { Text(session.user?.email.orEmpty()) }) }
-            item { ListItem(headlineContent = { Text("Server") }, supportingContent = { Text(session.server?.name ?: "–") }) }
+            item { ListItem(headlineContent = { Text("Server") }, supportingContent = { Text(session.server?.name ?: "Not connected") }) }
             item {
                 ListItem(
                     headlineContent = { Text("Connection") },
@@ -137,7 +137,7 @@ fun SettingsScreen(
 
             item { HorizontalDivider() }
             item { SectionHeader("Appearance") }
-            item { ClickableRow("Theme (${settings.theme})", { themeDialog = true }) }
+            item { ClickableRow("Theme (${settings.theme.name.lowercase().replaceFirstChar { it.uppercase() }})", { themeDialog = true }) }
             item {
                 ListItem(
                     headlineContent = { Text("Dynamic colour") },
@@ -158,7 +158,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            item { ClickableRow("Thumbnail quality (${settings.thumbQuality})", { qualityDialog = true }) }
+            item { ClickableRow("Thumbnail quality (${settings.thumbQuality.name.lowercase().replaceFirstChar { it.uppercase() }})", { qualityDialog = true }) }
 
             item { HorizontalDivider() }
             item { SectionHeader("Playback") }
