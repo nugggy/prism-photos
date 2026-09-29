@@ -544,12 +544,14 @@ class MediaRepositoryImpl(
             if (e.code() == 401) session.clear()
             throw e
         } catch (e: IOException) {
+            Diagnostics.log("Request failed (${e::class.java.simpleName}: ${e.message}); checking connections")
             val server = sess.server
             if (server != null) {
                 val mode = settings.settings.value.connectionMode
                 val manualUrl = settings.settings.value.manualServerUrl
                 val newActive = connectionChooser.choose(server.connections, mode, manualUrl)
                 if (newActive != null) {
+                    Diagnostics.log("Reconnected via ${newActive.uri} (${newActive.kind}); retrying once")
                     session.update { it.copy(active = newActive) }
                     return api.block(token)
                 }
