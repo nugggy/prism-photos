@@ -28,6 +28,10 @@ Plex Gallery (package name still "Prism" internally) is an independent project, 
 - Share to WhatsApp, Messages, Gmail, Instagram, Messenger, Telegram, or anything else, as real files.
 - Multi select with share, download, favourite, lock and delete.
 - Device tab showing the phone's own photos, and registration as a viewer, picker and share target so Prism can act as the default gallery.
+- My albums: create albums and add photos and videos from the viewer or multi select. They are Plex photo playlists, so they also appear in Plex's own apps.
+- Full photo editing suite on both clients: 20 adjustments, 18 filters with strength, crop with ratios and straighten, markup (pen, highlighter, shapes, text, stickers, blur brush), frames, date stamp and watermark, auto enhance, before and after, presets, copy and paste edits, JPEG, PNG or WebP export with size and quality, undo and redo.
+- Video editor (Android): trim, mute, rotate, flip, speed, colour, resolution, frame capture, export with Media3 Transformer.
+- Upload and automatic sync (Android): the phone's camera and screenshot folders back up to the Plex library folder over SMB or WebDAV (Plex has no upload API), then Plex scans. Deleting a synced item on the phone offers to remove it from Plex too.
 - In-app updates from GitHub Releases (Android) and service worker updates (web).
 - Material You dynamic colour, light, dark and AMOLED themes.
 
@@ -76,6 +80,10 @@ repository settings. Because Pages is served over https, browsers block plain
 `http://` LAN addresses (mixed content). Prism prefers the `*.plex.direct` https
 addresses Plex publishes, which resolve to your LAN IP as well, so LAN mode still
 works. If you self host on http (Docker on port 1111), plain LAN addresses work too.
+
+## Sync to Plex (Android)
+
+Plex Media Server has no upload API, so Plex Gallery writes files straight into the library folder on the server and asks Plex to scan. In Settings, Sync to Plex, choose SMB (the NAS share that holds the library, with a NAS username and password) or WebDAV (if enabled on the NAS), tap Test connection, then turn on Auto sync and pick which device folders to back up. Wi-Fi only is on by default. "Upload to Plex" is also available from multi select on the Device tab.
 
 ## Remote access
 
