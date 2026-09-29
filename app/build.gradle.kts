@@ -15,7 +15,7 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 fun signingValue(key: String, env: String): String? =
-    keystoreProps.getProperty(key) ?: System.getenv(env)
+    (keystoreProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
 
 android {
     namespace = "au.prism.photos"
