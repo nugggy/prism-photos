@@ -59,9 +59,13 @@ export function SignIn(): React.ReactElement {
   }, [])
 
   // Coming back from plex.tv (or after the tab was reloaded): resume the pending PIN.
+  const resumedPinRef = useRef<number | null>(null)
   useEffect(() => {
     const pending = loadPendingPin()
     if (!pending) return
+    // Only one poll loop per PIN, even if React re-runs this effect.
+    if (resumedPinRef.current === pending.id) return
+    resumedPinRef.current = pending.id
     cancelRef.current = false
     setSigningIn(true)
     setPinCode(pending.code)
