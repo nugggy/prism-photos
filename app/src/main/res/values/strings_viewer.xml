@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Viewer -->
+    <string name="viewer_info">Info</string>
+    <string name="viewer_rename">Rename</string>
+    <string name="viewer_edit_description">Edit description</string>
+    <string name="viewer_tags">Tags</string>
+    <string name="viewer_set_album_cover">Set as album cover</string>
+    <string name="viewer_set_wallpaper">Set as wallpaper</string>
+    <string name="viewer_lock">Lock</string>
+    <string name="viewer_unlock">Unlock</string>
+    <string name="viewer_slideshow">Slideshow</string>
+    <string name="viewer_open_in_plex">Open in Plex</string>
+    <string name="viewer_delete">Delete</string>
+    <string name="viewer_delete_confirm_title">Delete this item?</string>
+    <string name="viewer_delete_confirm_body">This can\'t be undone.</string>
+    <string name="viewer_share">Share</string>
+    <string name="viewer_favourite">Favourite</string>
+    <string name="viewer_edit">Edit</string>
+    <string name="viewer_download">Download</string>
+
+    <!-- Wallpaper picker -->
+    <string name="wallpaper_home">Home screen</string>
+    <string name="wallpaper_lock">Lock screen</string>
+    <string name="wallpaper_both">Home and lock screen</string>
+
+    <!-- Player -->
+    <string name="player_switched_to_transcoding">Switched to transcoding</string>
+    <string name="player_direct">Direct</string>
+    <string name="player_transcode">Transcode</string>
+
+    <!-- Editor -->
+    <string name="editor_title">Edit</string>
+    <string name="editor_crop">Crop</string>
+    <string name="editor_rotate">Rotate</string>
+    <string name="editor_adjust">Adjust</string>
+    <string name="editor_filters">Filters</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_discard_title">Discard changes?</string>
+    <string name="editor_discard_body">Your edits haven\'t been saved.</string>
+    <string name="editor_discard">Discard</string>
+    <string name="editor_keep_editing">Keep editing</string>
+
+    <!-- Lock gate -->
+    <string name="lock_title">Locked items</string>
+    <string name="lock_subtitle">Unlock with your fingerprint, face or device PIN</string>
+    <string name="lock_unlock">Unlock</string>
+
+    <!-- Share sheet -->
+    <string name="share_title">Share</string>
+    <string name="share_preparing">Preparing…</string>
+    <string name="share_copy_link">Copy link</string>
+    <string name="share_more">More</string>
+    <string name="share_link_copied">Link copied</string>
+</resources>
