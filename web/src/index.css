@@ -458,3 +458,265 @@ input:focus-visible,
     color: var(--gold);
   }
 }
+
+/* Photo editor */
+
+.editor-page {
+  padding-bottom: calc(var(--tab-bar-height) + 12px);
+}
+
+@media (min-width: 900px) {
+  .editor-page {
+    padding-bottom: 16px;
+  }
+}
+
+.editor-body {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.editor-stage-wrap {
+  flex: 1 1 480px;
+  min-width: 0;
+  background: #000;
+  border-radius: 8px;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.editor-stage {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+  max-height: 72vh;
+}
+
+.editor-stage canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  width: auto;
+  height: auto;
+}
+
+.editor-panel {
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .editor-panel {
+    width: 320px;
+    flex: 0 0 320px;
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+
+.editor-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tab-bar-height);
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 25;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 900px) {
+  .editor-tabs {
+    display: none;
+  }
+}
+
+.editor-tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.editor-tab-btn.active {
+  color: var(--gold);
+}
+
+.editor-desktop-tabs {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .editor-desktop-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+}
+
+.editor-slider-row {
+  margin-bottom: 10px;
+}
+
+.editor-slider-row .row-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  align-items: center;
+}
+
+.editor-slider-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--gold);
+}
+
+.editor-reset-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.editor-reset-btn:hover {
+  color: var(--gold);
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+
+.filter-thumb canvas,
+.filter-thumb .filter-thumb-fallback {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.filter-thumb.active canvas,
+.filter-thumb.active .filter-thumb-fallback {
+  border-color: var(--gold);
+}
+
+.color-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch.active {
+  border-color: var(--gold);
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.sticker-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 18px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.sticker-btn.active {
+  border-color: var(--gold);
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.tool-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
