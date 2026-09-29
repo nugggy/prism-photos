@@ -23,6 +23,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import au.prism.photos.PrismApp
 import au.prism.photos.domain.MediaItem
+import au.prism.photos.ui.albums.AddToAlbumSheet
 import au.prism.photos.ui.components.ConfirmDeleteDialog
 import au.prism.photos.ui.components.EmptyState
 import au.prism.photos.ui.components.ErrorState
@@ -50,6 +51,7 @@ fun FavouritesScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showAddToAlbum by remember { mutableStateOf(false) }
     var shareItems by remember { mutableStateOf<List<MediaItem>?>(null) }
 
     fun load() {
@@ -91,6 +93,7 @@ fun FavouritesScreen(
                         scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear(); load() }
                     },
                     onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )
             }
@@ -133,4 +136,16 @@ fun FavouritesScreen(
     }
 
     shareItems?.let { toShare -> ShareSheet(items = toShare, onDismiss = { shareItems = null; selection.clear() }) }
+
+    if (showAddToAlbum) {
+        AddToAlbumSheet(
+            itemIds = selection.selected.toList(),
+            onDismiss = { showAddToAlbum = false },
+            onAdded = { title ->
+                showAddToAlbum = false
+                selection.clear()
+                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+            },
+        )
+    }
 }

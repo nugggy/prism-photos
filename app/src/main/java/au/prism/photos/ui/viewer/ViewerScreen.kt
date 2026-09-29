@@ -46,6 +46,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import au.prism.photos.PrismApp
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.domain.ViewerSource
+import au.prism.photos.ui.albums.AddToAlbumSheet
 import au.prism.photos.ui.player.VideoPlayer
 import au.prism.photos.ui.share.ShareSheet
 import au.prism.photos.ui.theme.PlexGold
@@ -101,6 +102,7 @@ fun ViewerScreen(
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showWallpaperSheet by remember { mutableStateOf(false) }
+    var showAddToAlbum by remember { mutableStateOf(false) }
     var pendingDeleteItem by remember { mutableStateOf<MediaItem?>(null) }
 
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
@@ -200,6 +202,7 @@ fun ViewerScreen(
                         vm.setAlbumCover(currentItem)
                         scope.launch { snackbarHostState.showSnackbar("Set as album cover") }
                     },
+                    onAddToAlbum = { showAddToAlbum = true },
                     onWallpaper = { showWallpaperSheet = true },
                     onLockToggle = {
                         if (isLocked) vm.unlock(currentItem) else vm.lock(currentItem)
@@ -336,6 +339,16 @@ fun ViewerScreen(
                         .onSuccess { snackbarHostState.showSnackbar("Wallpaper set") }
                         .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't set wallpaper") }
                 }
+            },
+        )
+    }
+    if (showAddToAlbum) {
+        AddToAlbumSheet(
+            itemIds = listOf(currentItem.id),
+            onDismiss = { showAddToAlbum = false },
+            onAdded = { title ->
+                showAddToAlbum = false
+                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
             },
         )
     }

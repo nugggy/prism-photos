@@ -56,6 +56,7 @@ fun HomeScreen(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAlbum: (albumId: String) -> Unit,
+    onOpenMyAlbum: (albumId: String) -> Unit,
     onOpenViewer: (source: ViewerSource, index: Int) -> Unit,
 ) {
     val graph = PrismApp.graph
@@ -126,7 +127,7 @@ fun HomeScreen(
         Surface(Modifier.padding(padding), color = MaterialTheme.colorScheme.background) {
             when (tab) {
                 HomeTab.PHOTOS -> TimelineScreen(gridState = photosState, onOpenViewer = { index -> onOpenViewer(ViewerSource.Timeline, index) })
-                HomeTab.ALBUMS -> AlbumsScreen(gridState = albumsState, onOpenAlbum = onOpenAlbum)
+                HomeTab.ALBUMS -> AlbumsScreen(gridState = albumsState, onOpenAlbum = onOpenAlbum, onOpenMyAlbum = onOpenMyAlbum)
                 HomeTab.FAVOURITES -> FavouritesScreen(gridState = favouritesState, onOpenViewer = { index -> onOpenViewer(ViewerSource.Favourites, index) })
                 HomeTab.DEVICE -> DeviceScreen(gridState = deviceState, onOpenViewer = { bucket, index -> onOpenViewer(ViewerSource.Device(bucket), index) })
                 HomeTab.LOCKED -> LockedScreen(gridState = lockedState, onOpenViewer = { index -> onOpenViewer(ViewerSource.Locked, index) }, onOpenAlbum = onOpenAlbum)

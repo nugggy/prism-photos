@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import au.prism.photos.PrismApp
 import au.prism.photos.domain.LoadState
+import au.prism.photos.ui.albums.AddToAlbumSheet
 import au.prism.photos.ui.components.ConfirmDeleteDialog
 import au.prism.photos.ui.components.EmptyState
 import au.prism.photos.ui.components.ErrorState
@@ -63,6 +64,7 @@ fun TimelineScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var refreshing by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showAddToAlbum by remember { mutableStateOf(false) }
     var shareItems by remember { mutableStateOf<List<au.prism.photos.domain.MediaItem>?>(null) }
     val pick = LocalPickHandler.current
 
@@ -96,6 +98,7 @@ fun TimelineScreen(
                     onLock = {
                         scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() }
                     },
+                    onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )
             }
@@ -199,5 +202,17 @@ fun TimelineScreen(
 
     shareItems?.let { toShare ->
         ShareSheet(items = toShare, onDismiss = { shareItems = null; selection.clear() })
+    }
+
+    if (showAddToAlbum) {
+        AddToAlbumSheet(
+            itemIds = selection.selected.toList(),
+            onDismiss = { showAddToAlbum = false },
+            onAdded = { title ->
+                showAddToAlbum = false
+                selection.clear()
+                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+            },
+        )
     }
 }
