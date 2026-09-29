@@ -117,7 +117,52 @@ export async function fetchTimeline(
   if (clipResult.status === 'rejected') console.warn('Videos request failed', clipResult.reason)
   const photos = (photoResult.status === 'fulfilled' ? photoResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
   const clips = (clipResult.status === 'fulfilled' ? clipResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
-  return dedupeById(mergeTimeline(photos, clips))
+  // Second source: walk the album folders, which does not depend on numeric type filters.
+  let walked: MediaItem[] = []
+  try {
+    walked = await walkAlbums(server, sectionKey, fetchImpl)
+  } catch (e) {
+    console.warn('Album walk failed', e)
+  }
+  return dedupeById(mergeTimeline(photos, [...clips, ...walked]))
+}
+
+function isMediaDto(m: PlexMetadataDto): boolean {
+  if (m.type === 'photoalbum') return false
+  if (m.type === 'photo' || m.type === 'clip' || m.type === 'video') return true
+  return (m.Media ?? []).some((media) => (media.Part ?? []).length > 0)
+}
+
+/** Recursively lists every photo and video by walking albums from the library root (4 requests at a time). */
+export async function walkAlbums(server: ServerRef, sectionKey: string, fetchImpl: typeof fetch = fetch): Promise<MediaItem[]> {
+  const items = new Map<string, MediaItem>()
+  const seen = new Set<string>()
+  const queue: string[] = []
+  const absorb = (mc: PlexMediaContainerDto['MediaContainer']) => {
+    const directory = ((mc as { Directory?: PlexMetadataDto[] }).Directory ?? []).map((d) => ({ ...d, type: d.type ?? 'photoalbum' }))
+    const all = [...directory, ...(mc.Metadata ?? [])]
+    for (const m of all) {
+      if (m.type === 'photoalbum') {
+        const id = m.ratingKey ?? (m.key ?? '').match(/\/library\/metadata\/(\d+)/)?.[1]
+        if (id && !seen.has(id)) { seen.add(id); queue.push(id) }
+      } else if (isMediaDto(m)) {
+        const item = mapMetadataToMediaItem(m, sectionKey)
+        if (item.id) items.set(item.id, item)
+      }
+    }
+  }
+  const root = await plexFetch<PlexMediaContainerDto>(server, `/library/sections/${sectionKey}/all`, {}, fetchImpl)
+  absorb(root.MediaContainer)
+  let walked = 0
+  while (queue.length > 0 && walked < 5000) {
+    const batch = queue.splice(0, 4)
+    const results = await Promise.allSettled(
+      batch.map((id) => plexFetch<PlexMediaContainerDto>(server, `/library/metadata/${id}/children`, {}, fetchImpl)),
+    )
+    for (const r of results) if (r.status === 'fulfilled') absorb(r.value.MediaContainer)
+    walked += batch.length
+  }
+  return [...items.values()]
 }
 
 export interface AlbumChildren {

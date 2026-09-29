@@ -74,7 +74,7 @@ export function mapDirectoryToLibrary(dto: PlexDirectoryDto): Library {
 export function mapMetadataToMediaItem(dto: PlexMetadataDto, sectionKey: string): MediaItem {
   const media = dto.Media?.[0]
   const part = media?.Part?.[0]
-  const isVideo = dto.type === 'clip'
+  const isVideo = dto.type === 'clip' || dto.type === 'video' || dto.type === 'movie' || dto.type === 'episode' || Boolean(media?.videoCodec) || (dto.duration ?? 0) > 0
   const takenAt = parseOriginallyAvailableAt(dto.originallyAvailableAt) ?? (dto.addedAt ?? 0) * 1000
   return {
     id: dto.ratingKey,

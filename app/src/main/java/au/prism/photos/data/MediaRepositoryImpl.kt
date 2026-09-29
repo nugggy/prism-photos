@@ -28,6 +28,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -137,11 +141,58 @@ class MediaRepositoryImpl(
             timelineStateFlow.value = LoadState.Error(message)
             return
         }
-        val merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()))
-        Diagnostics.log("Timeline ready: ${merged.size} items (${photos.getOrNull()?.size ?: 0} photos, ${clips.getOrNull()?.size ?: 0} videos)")
+        // Second source: walk the album folders the way Plex organises photo libraries. This does not
+        // depend on the numeric type filters, which some servers answer differently.
+        val walked = runCatching { walkAlbums(libKey) }
+        walked.exceptionOrNull()?.let { Diagnostics.log("Album walk failed: ${describe(it)}") }
+        val merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()), walked.getOrDefault(emptyList()))
+            .distinctBy { it.id }
+        Diagnostics.log("Timeline ready: ${merged.size} items (${merged.count { !it.isVideo }} photos, ${merged.count { it.isVideo }} videos)")
         allItems.value = merged
         persistCache(merged)
         timelineStateFlow.value = LoadState.Loaded
+    }
+
+    /** Recursively lists every photo and video by walking albums from the library root. */
+    private suspend fun walkAlbums(libraryKey: String): List<MediaItem> {
+        val started = System.currentTimeMillis()
+        val items = java.util.concurrent.ConcurrentHashMap<String, MediaItem>()
+        val seenAlbums = java.util.Collections.synchronizedSet(HashSet<String>())
+        val root = apiCall { token -> sectionAll(libraryKey, token, null, null, null, null) }.mediaContainer
+        val queue = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        fun absorb(mc: MetadataMediaContainerDto) {
+            mc.metadata.filter { isMediaItem(it) }.map { mapItem(it, libraryKey) }.forEach { if (it.id.isNotBlank()) items[it.id] = it }
+            val albumIds = mc.directory.filter { it.type == "photoalbum" }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) } +
+                mc.metadata.filter { it.type == "photoalbum" }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) }
+            albumIds.forEach { if (seenAlbums.add(it)) queue.add(it) }
+        }
+        absorb(root)
+        var albumsWalked = 0
+        val semaphore = kotlinx.coroutines.sync.Semaphore(4)
+        while (queue.isNotEmpty() && albumsWalked < 5000) {
+            val batch = generateSequence { queue.poll() }.take(32).toList()
+            kotlinx.coroutines.coroutineScope {
+                batch.map { albumId ->
+                    async {
+                        semaphore.withPermit {
+                            runCatching { apiCall { token -> children(albumId, token) }.mediaContainer }
+                                .onFailure { Diagnostics.log("Album $albumId failed: ${describe(it)}") }
+                                .getOrNull()?.let { absorb(it) }
+                        }
+                    }
+                }.awaitAll()
+            }
+            albumsWalked += batch.size
+        }
+        Diagnostics.log("Album walk: $albumsWalked albums, ${items.size} items in ${System.currentTimeMillis() - started} ms")
+        return items.values.toList()
+    }
+
+    /** True for anything that is a photo or a video, whatever the server calls it. */
+    private fun isMediaItem(dto: MetadataDto): Boolean {
+        if (dto.type == "photoalbum") return false
+        if (dto.type == "photo" || dto.type == "clip" || dto.type == "video") return true
+        return dto.media.any { it.part.isNotEmpty() }
     }
 
     /** Human readable description of a failed request, including the HTTP status and body when available. */
@@ -459,7 +510,8 @@ class MediaRepositoryImpl(
 
     private fun mapItem(dto: MetadataDto, sectionKey: String): MediaItem {
         val id = dto.ratingKey ?: extractRatingKey(dto.key).orEmpty()
-        val isVideo = dto.type == "clip"
+        val isVideo = dto.type == "clip" || dto.type == "video" || dto.type == "movie" || dto.type == "episode" ||
+            dto.media.firstOrNull()?.videoCodec != null || (dto.duration ?: 0L) > 0L
         val media = dto.media.firstOrNull()
         val part = media?.part?.firstOrNull()
         return MediaItem(
