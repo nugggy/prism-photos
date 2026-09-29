@@ -74,6 +74,10 @@ data class Album(
     val parentId: String? = null,
     val sectionKey: String = "",
     val summary: String = "",
+    /** True for a Plex photo playlist (an album the user can add to and remove from). */
+    val isPlaylist: Boolean = false,
+    /** True for smart playlists, which Plex manages and the app cannot edit. */
+    val readOnly: Boolean = false,
 )
 
 @Serializable
@@ -216,6 +220,8 @@ sealed class ViewerSource {
     data object Favourites : ViewerSource()
     data object Locked : ViewerSource()
     data class Album(val albumId: String) : ViewerSource()
+    /** A Plex photo playlist (My albums). */
+    data class MyAlbum(val albumId: String) : ViewerSource()
     data class Search(val query: String) : ViewerSource()
     data class Device(val bucketId: String?) : ViewerSource()
     /** Explicit list of Plex item ids (multi select, shared intents). */

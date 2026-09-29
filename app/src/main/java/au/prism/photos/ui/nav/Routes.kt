@@ -31,6 +31,7 @@ object SourceCodec {
         au.prism.photos.domain.ViewerSource.Favourites -> "favourites"
         au.prism.photos.domain.ViewerSource.Locked -> "locked"
         is au.prism.photos.domain.ViewerSource.Album -> "album:${source.albumId}"
+        is au.prism.photos.domain.ViewerSource.MyAlbum -> "myalbum:${source.albumId}"
         is au.prism.photos.domain.ViewerSource.Search -> "search:${enc(source.query)}"
         is au.prism.photos.domain.ViewerSource.Device -> "device:${source.bucketId ?: ""}"
         is au.prism.photos.domain.ViewerSource.Items -> "items:${source.ids.joinToString(",")}"
@@ -43,6 +44,7 @@ object SourceCodec {
             s == "timeline" -> au.prism.photos.domain.ViewerSource.Timeline
             s == "favourites" -> au.prism.photos.domain.ViewerSource.Favourites
             s == "locked" -> au.prism.photos.domain.ViewerSource.Locked
+            s.startsWith("myalbum:") -> au.prism.photos.domain.ViewerSource.MyAlbum(s.removePrefix("myalbum:"))
             s.startsWith("album:") -> au.prism.photos.domain.ViewerSource.Album(s.removePrefix("album:"))
             s.startsWith("search:") -> au.prism.photos.domain.ViewerSource.Search(dec(s.removePrefix("search:")))
             s.startsWith("device:") -> au.prism.photos.domain.ViewerSource.Device(s.removePrefix("device:").ifEmpty { null })

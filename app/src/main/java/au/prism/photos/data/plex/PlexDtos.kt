@@ -185,6 +185,9 @@ data class MediaDto(
 
 @Serializable
 data class MetadataDto(
+    @Serializable(with = FlexibleStringSerializer::class) val playlistItemID: String? = null,
+    val smart: Boolean? = null,
+    val playlistType: String? = null,
     @Serializable(with = FlexibleStringSerializer::class) val ratingKey: String? = null,
     val key: String? = null,
     val guid: String? = null,

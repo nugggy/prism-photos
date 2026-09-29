@@ -190,6 +190,34 @@ class FakeMediaRepository(private val local: LocalStore, scope: CoroutineScope) 
     }
     override suspend fun clearCache() {}
 
+    private val myAlbumsState = MutableStateFlow(listOf(Album(id = "pl-1", title = "Best of 2025", itemCount = 3, sectionKey = "3", isPlaylist = true)))
+    private val myAlbumItemIds = MutableStateFlow(mapOf("pl-1" to listOf("fake-1", "fake-2", "fake-3")))
+    override suspend fun myAlbums(): Result<List<Album>> = Result.success(myAlbumsState.value)
+    override suspend fun myAlbumItems(albumId: String): Result<List<MediaItem>> =
+        Result.success(items(myAlbumItemIds.value[albumId].orEmpty()))
+    override suspend fun createMyAlbum(title: String, itemIds: List<String>): Result<Album> {
+        val album = Album(id = "pl-${System.currentTimeMillis()}", title = title, itemCount = itemIds.size, sectionKey = "3", isPlaylist = true)
+        myAlbumsState.update { it + album }
+        myAlbumItemIds.update { it + (album.id to itemIds) }
+        return Result.success(album)
+    }
+    override suspend fun addToMyAlbum(albumId: String, itemIds: List<String>): Result<Unit> {
+        myAlbumItemIds.update { it + (albumId to (it[albumId].orEmpty() + itemIds).distinct()) }
+        return Result.success(Unit)
+    }
+    override suspend fun removeFromMyAlbum(albumId: String, itemIds: List<String>): Result<Unit> {
+        myAlbumItemIds.update { it + (albumId to it[albumId].orEmpty().filterNot { id -> id in itemIds }) }
+        return Result.success(Unit)
+    }
+    override suspend fun renameMyAlbum(albumId: String, title: String): Result<Unit> {
+        myAlbumsState.update { list -> list.map { if (it.id == albumId) it.copy(title = title) else it } }
+        return Result.success(Unit)
+    }
+    override suspend fun deleteMyAlbum(albumId: String): Result<Unit> {
+        myAlbumsState.update { list -> list.filterNot { it.id == albumId } }
+        return Result.success(Unit)
+    }
+
     private fun seed(item: MediaItem) = item.id.removePrefix("fake-").toIntOrNull() ?: 1
     override fun thumbUrl(item: MediaItem, size: Int): String = "https://picsum.photos/seed/${seed(item)}/$size/$size"
     override fun albumCoverUrl(album: Album, size: Int): String = "https://picsum.photos/seed/${album.id}/$size/$size"

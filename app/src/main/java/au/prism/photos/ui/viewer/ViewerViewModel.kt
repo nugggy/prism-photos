@@ -65,6 +65,7 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
                 val sort = graph.local.albumSort.value[s.albumId]
                 applySort(contents?.items ?: emptyList(), sort)
             }
+            is ViewerSource.MyAlbum -> graph.media.myAlbumItems(s.albumId).getOrElse { onError(it); emptyList() }
             is ViewerSource.Search -> graph.media.search(s.query).getOrElse { onError(it); emptyList() }
             is ViewerSource.Device -> graph.device.items(s.bucketId)
             is ViewerSource.Items -> graph.media.items(s.ids)

@@ -1,6 +1,8 @@
 package au.prism.photos.data.plex
 
+import retrofit2.Response
 import retrofit2.http.DELETE
+import retrofit2.http.POST
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PUT
@@ -35,6 +37,56 @@ interface PlexServerApi {
         @Header("X-Plex-Container-Size") size: Int? = null,
         @QueryMap(encoded = true) extra: Map<String, String> = emptyMap(),
     ): MetadataContainerDto
+
+    // ---- photo playlists (My albums) ----
+
+    @GET("playlists")
+    suspend fun playlists(
+        @Header("X-Plex-Token") token: String,
+        @Query("playlistType") playlistType: String = "photo",
+    ): MetadataContainerDto
+
+    @GET("playlists/{id}/items")
+    suspend fun playlistItems(
+        @Path("id") playlistId: String,
+        @Header("X-Plex-Token") token: String,
+    ): MetadataContainerDto
+
+    @POST("playlists")
+    suspend fun createPlaylist(
+        @Header("X-Plex-Token") token: String,
+        @Query("title") title: String,
+        @Query("uri") uri: String,
+        @Query("type") type: String = "photo",
+        @Query("smart") smart: Int = 0,
+    ): MetadataContainerDto
+
+    @PUT("playlists/{id}/items")
+    suspend fun addPlaylistItems(
+        @Path("id") playlistId: String,
+        @Header("X-Plex-Token") token: String,
+        @Query("uri") uri: String,
+    ): Response<Unit>
+
+    @DELETE("playlists/{id}/items/{playlistItemId}")
+    suspend fun removePlaylistItem(
+        @Path("id") playlistId: String,
+        @Path("playlistItemId") playlistItemId: String,
+        @Header("X-Plex-Token") token: String,
+    ): Response<Unit>
+
+    @PUT("playlists/{id}")
+    suspend fun renamePlaylist(
+        @Path("id") playlistId: String,
+        @Header("X-Plex-Token") token: String,
+        @Query("title") title: String,
+    ): Response<Unit>
+
+    @DELETE("playlists/{id}")
+    suspend fun deletePlaylist(
+        @Path("id") playlistId: String,
+        @Header("X-Plex-Token") token: String,
+    ): Response<Unit>
 
     @GET("library/metadata/{ratingKey}/children")
     suspend fun children(

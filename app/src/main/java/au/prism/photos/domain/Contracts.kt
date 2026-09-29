@@ -75,6 +75,15 @@ interface MediaRepository {
     suspend fun delete(id: String): Result<Unit>
     suspend fun clearCache()
 
+    // My albums: Plex photo playlists. Folder albums cannot be changed through the API, these can.
+    suspend fun myAlbums(): Result<List<Album>>
+    suspend fun myAlbumItems(albumId: String): Result<List<MediaItem>>
+    suspend fun createMyAlbum(title: String, itemIds: List<String>): Result<Album>
+    suspend fun addToMyAlbum(albumId: String, itemIds: List<String>): Result<Unit>
+    suspend fun removeFromMyAlbum(albumId: String, itemIds: List<String>): Result<Unit>
+    suspend fun renameMyAlbum(albumId: String, title: String): Result<Unit>
+    suspend fun deleteMyAlbum(albumId: String): Result<Unit>
+
     /** Square-ish thumbnail through the Plex transcoder. [size] is the longest edge in px. */
     fun thumbUrl(item: MediaItem, size: Int): String
     fun albumCoverUrl(album: Album, size: Int): String

@@ -421,6 +421,73 @@ class MediaRepositoryImpl(
         summary = m.summary.orEmpty(),
     )
 
+    // ---- My albums (Plex photo playlists) ----
+
+    private fun playlistUri(itemIds: List<String>): String {
+        val machine = session.session.value.server?.clientIdentifier.orEmpty()
+        return "server://$machine/com.plexapp.plugins.library/library/metadata/${itemIds.joinToString(",")}"
+    }
+
+    private fun mapPlaylist(m: MetadataDto): Album = Album(
+        id = m.ratingKey ?: extractRatingKey(m.key).orEmpty(),
+        title = m.title.orEmpty(),
+        thumbPath = m.thumb,
+        compositePath = m.composite,
+        itemCount = m.leafCount ?: 0,
+        addedAt = (m.addedAt ?: 0L) * 1000L,
+        sectionKey = session.session.value.libraryKey.orEmpty(),
+        summary = m.summary.orEmpty(),
+        isPlaylist = true,
+        readOnly = m.smart == true,
+    )
+
+    override suspend fun myAlbums(): Result<List<Album>> = runCatching {
+        apiCall { token -> playlists(token) }.mediaContainer.metadata
+            .filter { it.playlistType == null || it.playlistType == "photo" }
+            .map { mapPlaylist(it) }
+            .filter { it.id.isNotBlank() }
+    }
+
+    override suspend fun myAlbumItems(albumId: String): Result<List<MediaItem>> = runCatching {
+        val libKey = session.session.value.libraryKey.orEmpty()
+        apiCall { token -> playlistItems(albumId, token) }.mediaContainer.metadata
+            .filter { isMediaItem(it) }
+            .map { mapItem(it, libKey) }
+    }
+
+    override suspend fun createMyAlbum(title: String, itemIds: List<String>): Result<Album> = runCatching {
+        val ids = itemIds.ifEmpty { listOf(allItems.value.firstOrNull()?.id ?: throw IllegalStateException("Choose at least one photo for a new album")) }
+        val created = apiCall { token -> createPlaylist(token, title, playlistUri(ids)) }.mediaContainer.metadata.firstOrNull()
+            ?: throw IllegalStateException("The server did not return the new album")
+        val album = mapPlaylist(created)
+        // Plex needs at least one item to create a playlist; if the caller wanted it empty, remove the seed again.
+        if (itemIds.isEmpty()) attempt { removeFromMyAlbum(album.id, ids).getOrThrow() }
+        album
+    }
+
+    override suspend fun addToMyAlbum(albumId: String, itemIds: List<String>): Result<Unit> = runCatching {
+        if (itemIds.isEmpty()) return@runCatching
+        val response = apiCall { token -> addPlaylistItems(albumId, token, playlistUri(itemIds)) }
+        if (!response.isSuccessful) throw IllegalStateException("Could not add to the album (HTTP ${response.code()})")
+    }
+
+    override suspend fun removeFromMyAlbum(albumId: String, itemIds: List<String>): Result<Unit> = runCatching {
+        val entries = apiCall { token -> playlistItems(albumId, token) }.mediaContainer.metadata
+        val wanted = itemIds.toSet()
+        entries.filter { (it.ratingKey ?: extractRatingKey(it.key)) in wanted && it.playlistItemID != null }
+            .forEach { entry -> apiCall { token -> removePlaylistItem(albumId, entry.playlistItemID!!, token) } }
+    }
+
+    override suspend fun renameMyAlbum(albumId: String, title: String): Result<Unit> = runCatching {
+        val response = apiCall { token -> renamePlaylist(albumId, token, title) }
+        if (!response.isSuccessful) throw IllegalStateException("Could not rename the album (HTTP ${response.code()})")
+    }
+
+    override suspend fun deleteMyAlbum(albumId: String): Result<Unit> = runCatching {
+        val response = apiCall { token -> deletePlaylist(albumId, token) }
+        if (!response.isSuccessful) throw IllegalStateException("Could not delete the album (HTTP ${response.code()})")
+    }
+
     // ---- favourites & search ----
 
     override suspend fun favourites(): Result<List<MediaItem>> = runCatching {
