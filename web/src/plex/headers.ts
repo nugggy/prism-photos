@@ -31,6 +31,18 @@ export function getClientIdentifier(): string {
 
 export const APP_VERSION = '1.0.0'
 
+/** Short browser name for the X-Plex-Device header. */
+export function browserName(): string {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  if (/Edg\//.test(ua)) return 'Edge'
+  if (/OPR\//.test(ua)) return 'Opera'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/Firefox\//.test(ua)) return 'Firefox'
+  if (/Chrome\//.test(ua)) return 'Chrome'
+  if (/Safari\//.test(ua)) return 'Safari'
+  return 'Browser'
+}
+
 export interface PlexHeadersOptions {
   token?: string
   accept?: string
@@ -45,7 +57,7 @@ export function buildPlexHeaders(options: PlexHeadersOptions = {}): Record<strin
     'X-Plex-Client-Identifier': getClientIdentifier(),
     'X-Plex-Platform': 'Web',
     'X-Plex-Platform-Version': typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-    'X-Plex-Device': typeof navigator !== 'undefined' ? navigator.userAgent : 'Browser',
+    'X-Plex-Device': browserName(),
     'X-Plex-Device-Name': 'Prism',
   }
   if (options.token) {

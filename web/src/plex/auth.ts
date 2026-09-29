@@ -22,13 +22,57 @@ export async function createPin(fetchImpl: typeof fetch = fetch): Promise<PlexPi
 }
 
 /** Step 2: the URL to open in a new tab for the user to authorise the PIN. */
-export function buildAuthUrl(pin: PlexPin): string {
+export function buildAuthUrl(pin: PlexPin, forwardUrl?: string): string {
   const params = new URLSearchParams({
     clientID: getClientIdentifier(),
     code: pin.code,
     'context[device][product]': 'Prism',
   })
+  // With forwardUrl Plex sends the browser back to the app after authorising,
+  // so the whole flow can run in one tab (mobile browsers freeze background tabs).
+  if (forwardUrl) params.set('forwardUrl', forwardUrl)
   return `https://app.plex.tv/auth#?${params.toString()}`
+}
+
+const PENDING_PIN_KEY = 'prism.pendingPin'
+
+export interface PendingPin {
+  id: number
+  code: string
+  createdAt: number
+}
+
+/** Remembers a PIN across the redirect to plex.tv and back. */
+export function savePendingPin(pin: PlexPin): void {
+  try {
+    localStorage.setItem(PENDING_PIN_KEY, JSON.stringify({ id: pin.id, code: pin.code, createdAt: Date.now() }))
+  } catch {
+    // ignore
+  }
+}
+
+/** Returns the pending PIN if one was started in the last 15 minutes. */
+export function loadPendingPin(): PendingPin | null {
+  try {
+    const raw = localStorage.getItem(PENDING_PIN_KEY)
+    if (!raw) return null
+    const pin = JSON.parse(raw) as PendingPin
+    if (!pin.id || Date.now() - pin.createdAt > 15 * 60 * 1000) {
+      localStorage.removeItem(PENDING_PIN_KEY)
+      return null
+    }
+    return pin
+  } catch {
+    return null
+  }
+}
+
+export function clearPendingPin(): void {
+  try {
+    localStorage.removeItem(PENDING_PIN_KEY)
+  } catch {
+    // ignore
+  }
 }
 
 /** Step 3: poll until authToken is set. Returns null while still pending. */

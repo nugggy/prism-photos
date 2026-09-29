@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { buildAuthUrl, createPin, fetchPlexUser, pollUntilAuthorised } from '../plex/auth'
+import { buildAuthUrl, clearPendingPin, createPin, fetchPlexUser, loadPendingPin, pollUntilAuthorised, savePendingPin } from '../plex/auth'
 import { fetchIdentity, verifyManualServer } from '../plex/api'
 import { useSessionStore } from '../state/sessionStore'
 
@@ -21,30 +21,67 @@ export function SignIn(): React.ReactElement {
   const [manualToken, setManualToken] = useState('')
   const [manualBusy, setManualBusy] = useState(false)
 
+  /** Finishes sign in once a PIN has been authorised: fetch the account, store it, move on. */
+  const completeWithPin = useCallback(
+    async (pinId: number) => {
+      const token = await pollUntilAuthorised(pinId, {
+        timeoutMs: 5 * 60 * 1000,
+        onTick: () => {
+          if (cancelRef.current) throw new Error('Sign-in cancelled.')
+        },
+      })
+      const user = await fetchPlexUser(token)
+      clearPendingPin()
+      setAccount(token, user.username || user.title || user.email)
+      navigate('/servers')
+    },
+    [navigate, setAccount],
+  )
+
+  // Same tab flow: create a PIN, remember it, send the browser to plex.tv, and let Plex
+  // forward back here. Mobile browsers freeze or reload background tabs, so a popup plus
+  // polling in the original tab is unreliable.
   const startPlexSignIn = useCallback(async () => {
     setError(null)
     setSigningIn(true)
     cancelRef.current = false
     try {
       const pin = await createPin()
+      savePendingPin(pin)
       setPinCode(pin.code)
-      const authUrl = buildAuthUrl(pin)
-      window.open(authUrl, '_blank', 'noopener,noreferrer')
-      const token = await pollUntilAuthorised(pin.id, {
-        onTick: () => {
-          if (cancelRef.current) throw new Error('Sign-in cancelled.')
-        },
-      })
-      const user = await fetchPlexUser(token)
-      setAccount(token, user.username || user.title || user.email)
-      navigate('/servers')
+      const forwardUrl = `${window.location.origin}${window.location.pathname}${window.location.search}#/signin`
+      window.location.assign(buildAuthUrl(pin, forwardUrl))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed.')
-    } finally {
       setSigningIn(false)
       setPinCode(null)
     }
-  }, [navigate, setAccount])
+  }, [])
+
+  // Coming back from plex.tv (or after the tab was reloaded): resume the pending PIN.
+  useEffect(() => {
+    const pending = loadPendingPin()
+    if (!pending) return
+    cancelRef.current = false
+    setSigningIn(true)
+    setPinCode(pending.code)
+    completeWithPin(pending.id)
+      .catch((e) => {
+        clearPendingPin()
+        setError(e instanceof Error ? e.message : 'Sign-in failed.')
+      })
+      .finally(() => {
+        setSigningIn(false)
+        setPinCode(null)
+      })
+  }, [completeWithPin])
+
+  const cancelPlexSignIn = useCallback(() => {
+    cancelRef.current = true
+    clearPendingPin()
+    setSigningIn(false)
+    setPinCode(null)
+  }, [])
 
   const submitManual = useCallback(
     async (e: React.FormEvent) => {
@@ -91,11 +128,14 @@ export function SignIn(): React.ReactElement {
         {mode === 'plex' && (
           <div>
             <p className="muted" style={{ fontSize: 14 }}>
-              Sign in with your Plex account. A new tab will open to authorise Prism.
+              Sign in with your Plex account. You will be taken to plex.tv to authorise Prism and brought straight back.
             </p>
             {pinCode && (
               <p style={{ fontSize: 14 }}>
-                Waiting for authorisation. If the tab did not open, your code is <strong>{pinCode}</strong>.
+                Waiting for authorisation. If plex.tv asks for a code, it is <strong>{pinCode}</strong>.{' '}
+                <button type="button" className="btn" onClick={cancelPlexSignIn} style={{ marginLeft: 8 }}>
+                  Cancel
+                </button>
               </p>
             )}
             {error && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{error}</p>}
