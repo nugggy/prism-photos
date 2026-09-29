@@ -25,8 +25,8 @@ android {
         applicationId = "au.prism.photos"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = (project.findProperty("PRISM_VERSION_CODE") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("PRISM_VERSION_NAME") as String?) ?: "1.0.0"
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
         vectorDrawables.useSupportLibrary = true
     }
