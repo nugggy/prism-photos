@@ -90,7 +90,7 @@ export function Photos(): React.ReactElement {
       <div className="page-header">
         <h1 className="page-title">Photos</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {refreshing && <span className="muted" style={{ fontSize: 12 }}>Refreshing…</span>}
+          {refreshing && <span className="muted" style={{ fontSize: 12 }}>Refreshing</span>}
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }} className="muted">
             Density
             <input type="range" min={2} max={8} value={density} onChange={(e) => setDensity(Number(e.target.value))} />
@@ -132,7 +132,7 @@ export function Photos(): React.ReactElement {
         <ConfirmDialog
           title="Delete selected"
           message={`This deletes ${selectedItems.length} item(s) from Plex permanently. This cannot be undone.`}
-          confirmLabel={busy ? 'Deleting…' : 'Delete'}
+          confirmLabel={busy ? 'Deleting' : 'Delete'}
           danger
           onConfirm={() => void handleDelete()}
           onCancel={() => setConfirmDelete(false)}

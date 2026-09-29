@@ -70,7 +70,7 @@ export function SignIn(): React.ReactElement {
 
   return (
     <div className="center-screen">
-      <div className="card" style={{ width: 420, maxWidth: '100%' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <img src="logo.svg" alt="" width={44} height={44} />
           <div>
@@ -100,7 +100,7 @@ export function SignIn(): React.ReactElement {
             )}
             {error && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{error}</p>}
             <button className="btn btn-primary" onClick={() => void startPlexSignIn()} disabled={signingIn} style={{ width: '100%', justifyContent: 'center' }}>
-              {signingIn ? 'Waiting for authorisation…' : 'Sign in with Plex'}
+              {signingIn ? 'Waiting for authorisation' : 'Sign in with Plex'}
             </button>
           </div>
         )}
@@ -136,7 +136,7 @@ export function SignIn(): React.ReactElement {
             />
             {error && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{error}</p>}
             <button className="btn btn-primary" type="submit" disabled={manualBusy} style={{ width: '100%', justifyContent: 'center' }}>
-              {manualBusy ? 'Connecting…' : 'Connect'}
+              {manualBusy ? 'Connecting' : 'Connect'}
             </button>
           </form>
         )}

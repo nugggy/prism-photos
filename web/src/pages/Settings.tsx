@@ -41,7 +41,7 @@ export function Settings(): React.ReactElement {
 
   const handleReconnect = async () => {
     if (!activeConnection) return
-    setReconnectStatus('Checking…')
+    setReconnectStatus('Checking')
     const result = await probeConnection({ protocol: '', address: '', port: 0, uri: activeConnection.baseUrl, local: true, relay: false, IPv6: false })
     setReconnectStatus(result.reachable ? 'Connected.' : 'Could not reach the server.')
   }

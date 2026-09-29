@@ -191,7 +191,7 @@ export function ServerPicker(): React.ReactElement {
                 </div>
               </div>
               <button className="btn btn-primary" onClick={() => void connectToServer(s)} disabled={connecting === s.clientIdentifier}>
-                {connecting === s.clientIdentifier ? 'Connecting…' : 'Connect'}
+                {connecting === s.clientIdentifier ? 'Connecting' : 'Connect'}
               </button>
             </div>
             <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>

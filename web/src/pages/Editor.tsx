@@ -234,7 +234,7 @@ export function Editor(): React.ReactElement {
             Share
           </button>
           <button className="btn btn-primary" onClick={() => void handleExport()} disabled={exporting}>
-            {exporting ? 'Exporting…' : 'Export as JPEG'}
+            {exporting ? 'Exporting' : 'Export as JPEG'}
           </button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export function Editor(): React.ReactElement {
           )}
         </div>
 
-        <div style={{ width: 280 }} className="card">
+        <div style={{ width: '100%', maxWidth: 280 }} className="card">
           <h3 style={{ marginTop: 0, fontSize: 14 }}>Crop</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {RATIOS.map((r) => (

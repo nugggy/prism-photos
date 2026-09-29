@@ -163,7 +163,7 @@ enum class SortOrder { NEWEST, OLDEST, NAME }
 @Serializable
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColour: Boolean = true,
+    val dynamicColour: Boolean = false,
     val gridColumns: Int = 3,
     val connectionMode: ConnectionMode = ConnectionMode.AUTO,
     val manualServerUrl: String = "",

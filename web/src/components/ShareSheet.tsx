@@ -60,7 +60,7 @@ export function ShareSheet({ title, link, fileUrl, fileName, onClose }: ShareShe
 
         {fileUrl && (
           <button className="btn btn-primary" onClick={() => void handleShareFile()} disabled={busy} style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
-            {busy ? 'Preparing…' : 'Share file'}
+            {busy ? 'Preparing' : 'Share file'}
           </button>
         )}
         <button className="btn" onClick={() => void handleShareLink()} style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}>
