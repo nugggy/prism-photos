@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ed_undo">Undo</string>
+    <string name="ed_redo">Redo</string>
+    <string name="ed_compare">Compare with original</string>
+    <string name="ed_revert">Revert to original</string>
+    <string name="ed_revert_title">Revert to original?</string>
+    <string name="ed_revert_body">This clears every adjustment, filter, crop, markup and frame you\'ve applied.</string>
+    <string name="ed_tab_adjust">Adjust</string>
+    <string name="ed_tab_filters">Filters</string>
+    <string name="ed_tab_crop">Crop</string>
+    <string name="ed_tab_markup">Markup</string>
+    <string name="ed_tab_frames">Frames</string>
+    <string name="ed_tab_export">Export</string>
+    <string name="ed_auto_enhance">Auto enhance</string>
+    <string name="ed_save_copy">Save copy</string>
+    <string name="ed_share">Share</string>
+</resources>
