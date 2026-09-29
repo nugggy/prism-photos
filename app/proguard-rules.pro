@@ -13,3 +13,11 @@
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 -dontwarn org.codehaus.mojo.animal_sniffer.*
 -dontwarn javax.annotation.**
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+
+# jcifs-ng (SMB) uses reflection for its configuration and SLF4J has no binding on Android
+-dontwarn org.slf4j.**
+-keep class jcifs.** { *; }
+-dontwarn jcifs.**
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
