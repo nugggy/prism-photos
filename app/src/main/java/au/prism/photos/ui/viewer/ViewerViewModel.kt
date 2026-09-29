@@ -171,6 +171,31 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
         return result
     }
 
+    /**
+     * Non-null when [item] is a device item that has already been synced to the Plex library
+     * (see data/upload/SyncLedger.kt), giving its Plex rating key. Resolves the rating key first
+     * if the ledger recorded the upload but has not matched it to a Plex item yet. Used to decide
+     * whether to show the "Delete from Plex as well?" prompt before a device delete.
+     */
+    suspend fun syncedPlexRatingKey(item: MediaItem): String? {
+        if (!item.isLocal) return null
+        val ledger = graph.syncLedger
+        if (!ledger.isUploaded(item)) return null
+        var entry = ledger.entryFor(item)
+        if (entry?.plexRatingKey == null) {
+            runCatching { ledger.resolvePlexIds(graph.media) }
+            entry = ledger.entryFor(item)
+        }
+        return entry?.plexRatingKey
+    }
+
+    /** Deletes the Plex copy first; only deletes the device copy if that succeeds. */
+    suspend fun deleteFromBoth(item: MediaItem, plexRatingKey: String): Result<Unit> {
+        val plexResult = graph.media.delete(plexRatingKey)
+        if (plexResult.isFailure) return plexResult
+        return delete(item)
+    }
+
     private suspend fun deleteDeviceItem(item: MediaItem): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val uri = Uri.parse(item.localUri)

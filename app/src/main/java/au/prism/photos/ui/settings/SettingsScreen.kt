@@ -1,8 +1,12 @@
 package au.prism.photos.ui.settings
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +24,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,7 +58,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import au.prism.photos.BuildConfig
 import au.prism.photos.PrismApp
+import au.prism.photos.data.upload.ConnectionTester
+import au.prism.photos.data.upload.DestinationType
+import au.prism.photos.data.upload.SyncScheduler
 import au.prism.photos.domain.ConnectionMode
+import au.prism.photos.domain.DeviceAlbum
 import au.prism.photos.domain.ThemeMode
 import au.prism.photos.domain.ThumbQuality
 import au.prism.photos.ui.theme.PlexGold
@@ -229,6 +240,10 @@ fun SettingsScreen(
             }
 
             item { HorizontalDivider() }
+            item { SectionHeader("Sync to Plex") }
+            item { SyncToPlexSection() }
+
+            item { HorizontalDivider() }
             item { SectionHeader("Diagnostics") }
             item { DiagnosticsPanel(onReload = { scope.launch { graph.media.refreshTimeline(force = true) } }) }
             item { SectionHeader("About") }
@@ -349,5 +364,230 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
                 clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Diagnostics", au.prism.photos.data.Diagnostics.asText()))
             }) { Text("Copy diagnostics") }
         }
+    }
+}
+
+/**
+ * Configures where device photos and videos are backed up (SMB or WebDAV), the destination
+ * folder on the Plex server, and automatic background sync. See docs/plex-api.md "Uploading to
+ * the server" - Plex has no upload API, this writes into the library folder over the network.
+ */
+@Composable
+private fun SyncToPlexSection() {
+    val graph = PrismApp.graph
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val syncSettings by graph.uploadSettings.settings.collectAsStateWithLifecycle()
+    val destination = syncSettings.destination
+
+    var smbHost by remember(destination.smbHost) { mutableStateOf(destination.smbHost) }
+    var smbShare by remember(destination.smbShare) { mutableStateOf(destination.smbShare) }
+    var smbPath by remember(destination.smbPath) { mutableStateOf(destination.smbPath) }
+    var smbUser by remember(destination.smbUsername) { mutableStateOf(destination.smbUsername) }
+    var smbPass by remember(destination.smbPassword) { mutableStateOf(destination.smbPassword) }
+    var smbDomain by remember(destination.smbDomain) { mutableStateOf(destination.smbDomain) }
+    var webDavUrl by remember(destination.webDavBaseUrl) { mutableStateOf(destination.webDavBaseUrl) }
+    var webDavUser by remember(destination.webDavUsername) { mutableStateOf(destination.webDavUsername) }
+    var webDavPass by remember(destination.webDavPassword) { mutableStateOf(destination.webDavPassword) }
+    var serverFolderPath by remember(syncSettings.serverFolderPath) { mutableStateOf(syncSettings.serverFolderPath) }
+    var subFolderPattern by remember(syncSettings.subFolderPattern) { mutableStateOf(syncSettings.subFolderPattern) }
+
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    var deviceAlbums by remember { mutableStateOf<List<DeviceAlbum>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        if (graph.device.hasPermission()) deviceAlbums = graph.device.albums()
+        if (syncSettings.serverFolderPath.isBlank()) {
+            graph.libraryLocationResolver.currentLibraryPath()?.let { path ->
+                serverFolderPath = path
+                graph.uploadSettings.update { it.copy(serverFolderPath = path) }
+            }
+        }
+    }
+
+    fun updateDestination(transform: (au.prism.photos.data.upload.UploadDestination) -> au.prism.photos.data.upload.UploadDestination) {
+        scope.launch { graph.uploadSettings.update { it.copy(destination = transform(it.destination)) } }
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { /* best effort */ }
+
+    fun setAutoSync(enabled: Boolean) {
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        scope.launch { graph.uploadSettings.update { it.copy(autoSyncEnabled = enabled) } }
+    }
+
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text("Destination type", style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            RadioButton(
+                selected = destination.type == DestinationType.SMB,
+                onClick = { updateDestination { it.copy(type = DestinationType.SMB) } },
+            )
+            Text("SMB", modifier = Modifier.padding(end = 16.dp))
+            RadioButton(
+                selected = destination.type == DestinationType.WEBDAV,
+                onClick = { updateDestination { it.copy(type = DestinationType.WEBDAV) } },
+            )
+            Text("WebDAV")
+        }
+
+        if (destination.type == DestinationType.SMB) {
+            OutlinedTextField(
+                value = smbHost,
+                onValueChange = { smbHost = it; updateDestination { d -> d.copy(smbHost = smbHost) } },
+                label = { Text("Host or IP") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = smbShare,
+                onValueChange = { smbShare = it; updateDestination { d -> d.copy(smbShare = smbShare) } },
+                label = { Text("Share name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = smbPath,
+                onValueChange = { smbPath = it; updateDestination { d -> d.copy(smbPath = smbPath) } },
+                label = { Text("Path inside the share (optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = smbUser,
+                onValueChange = { smbUser = it; updateDestination { d -> d.copy(smbUsername = smbUser) } },
+                label = { Text("Username") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = smbPass,
+                onValueChange = { smbPass = it; updateDestination { d -> d.copy(smbPassword = smbPass) } },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = smbDomain,
+                onValueChange = { smbDomain = it; updateDestination { d -> d.copy(smbDomain = smbDomain) } },
+                label = { Text("Domain (optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+        } else {
+            OutlinedTextField(
+                value = webDavUrl,
+                onValueChange = { webDavUrl = it; updateDestination { d -> d.copy(webDavBaseUrl = webDavUrl) } },
+                label = { Text("WebDAV address") },
+                placeholder = { Text("https://nas.local:5006/photos") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = webDavUser,
+                onValueChange = { webDavUser = it; updateDestination { d -> d.copy(webDavUsername = webDavUser) } },
+                label = { Text("Username") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+            OutlinedTextField(
+                value = webDavPass,
+                onValueChange = { webDavPass = it; updateDestination { d -> d.copy(webDavPassword = webDavPass) } },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = !testing,
+                onClick = {
+                    testing = true
+                    testResult = null
+                    scope.launch {
+                        val result = ConnectionTester.test(destination, context.contentResolver, graph.uploadHttpClient)
+                        testResult = result.fold({ it }, { "Failed: ${it.message ?: "unknown error"}" })
+                        testing = false
+                    }
+                },
+            ) { Text(if (testing) "Testing…" else "Test connection") }
+        }
+        testResult?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+        }
+
+        Spacer(Modifier.height(16.dp))
+        OutlinedTextField(
+            value = serverFolderPath,
+            onValueChange = { serverFolderPath = it; scope.launch { graph.uploadSettings.update { s -> s.copy(serverFolderPath = serverFolderPath) } } },
+            label = { Text("Library folder path on the server") },
+            supportingText = { Text("From Plex: Directory > Location > path. Narrows the rescan to this folder.") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = subFolderPattern,
+            onValueChange = { subFolderPattern = it; scope.launch { graph.uploadSettings.update { s -> s.copy(subFolderPattern = subFolderPattern) } } },
+            label = { Text("Upload sub folder pattern") },
+            supportingText = { Text("Tokens: {device} {yyyy} {MM} {dd}") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+
+        Spacer(Modifier.height(16.dp))
+        ListItem(
+            headlineContent = { Text("Automatically sync new photos") },
+            supportingContent = { Text("Back up new items from the albums below in the background") },
+            trailingContent = { Switch(checked = syncSettings.autoSyncEnabled, onCheckedChange = { setAutoSync(it) }) },
+        )
+        if (deviceAlbums.isNotEmpty()) {
+            Text("Albums to back up", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                items(deviceAlbums, key = { it.bucketId }) { album ->
+                    val selected = album.bucketId in syncSettings.selectedBuckets
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            scope.launch {
+                                graph.uploadSettings.update { s ->
+                                    s.copy(selectedBuckets = if (selected) s.selectedBuckets - album.bucketId else s.selectedBuckets + album.bucketId)
+                                }
+                            }
+                        },
+                        label = { Text("${album.name} (${album.count})") },
+                    )
+                }
+            }
+        }
+        ListItem(
+            headlineContent = { Text("Wi-Fi only") },
+            trailingContent = { Switch(checked = syncSettings.wifiOnly, onCheckedChange = { v -> scope.launch { graph.uploadSettings.update { it.copy(wifiOnly = v) } } }) },
+        )
+        ListItem(
+            headlineContent = { Text("Charging only") },
+            trailingContent = { Switch(checked = syncSettings.chargingOnly, onCheckedChange = { v -> scope.launch { graph.uploadSettings.update { it.copy(chargingOnly = v) } } }) },
+        )
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = { SyncScheduler.syncNow(context, syncSettings.wifiOnly, syncSettings.chargingOnly) }) { Text("Sync now") }
+        val lastSync = syncSettings.lastSyncAt
+        Text(
+            if (lastSync > 0) {
+                val when_ = java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSync))
+                "Last sync: $when_  ·  ${syncSettings.lastSyncUploaded} uploaded, ${syncSettings.lastSyncFailed} failed"
+            } else {
+                "Never synced yet"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }

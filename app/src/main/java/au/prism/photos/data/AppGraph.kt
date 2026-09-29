@@ -6,6 +6,11 @@ import au.prism.photos.data.plex.DynamicBaseUrlInterceptor
 import au.prism.photos.data.plex.PlexHeaders
 import au.prism.photos.data.plex.PlexServerApi
 import au.prism.photos.data.plex.PlexTvApi
+import au.prism.photos.data.upload.LibraryLocationResolver
+import au.prism.photos.data.upload.SyncLedger
+import au.prism.photos.data.upload.SyncScheduler
+import au.prism.photos.data.upload.UploadService
+import au.prism.photos.data.upload.UploadSettingsStore
 import au.prism.photos.domain.DeviceMediaSource
 import au.prism.photos.domain.LocalStore
 import au.prism.photos.domain.MediaRepository
@@ -22,6 +27,7 @@ import coil3.video.VideoFrameDecoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -115,6 +121,32 @@ class AppGraph(val app: Application) {
     val updates: UpdateChecker = UpdateCheckerImpl(app, plainHttpClient, json)
 
     val device: DeviceMediaSource = DeviceMediaSourceImpl(app)
+
+    /** Longer timeouts than the Plex clients: uploads can be large video files over slow Wi-Fi. */
+    val uploadHttpClient: OkHttpClient = baseClientBuilder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.MINUTES)
+        .readTimeout(10, TimeUnit.MINUTES)
+        .build()
+
+    val uploadSettings = UploadSettingsStore(app)
+    val syncLedger = SyncLedger(app)
+    val libraryLocationResolver = LibraryLocationResolver(plexServerApi, session)
+    val uploadService = UploadService(
+        settingsStore = uploadSettings,
+        ledger = syncLedger,
+        media = media,
+        session = session,
+        resolver = app.contentResolver,
+        webDavClient = uploadHttpClient,
+        serverApi = plexServerApi,
+    )
+
+    init {
+        // Keep the periodic sync job in step with the auto sync toggle and its Wi-Fi/charging
+        // constraints, and (re)enqueue it on process start when auto sync is already on.
+        scope.launch { uploadSettings.settings.collect { s -> SyncScheduler.ensureScheduled(app, s) } }
+    }
 
     /** Shared Coil 3 image loader. The UI sets this as the SingletonImageLoader in MainActivity. */
     val imageLoader: ImageLoader = ImageLoader.Builder(app)

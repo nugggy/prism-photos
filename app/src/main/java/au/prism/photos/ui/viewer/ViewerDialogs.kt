@@ -2,6 +2,7 @@ package au.prism.photos.ui.viewer
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
@@ -43,6 +44,31 @@ fun DeleteConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         text = { Text("This can't be undone.") },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * Shown instead of [DeleteConfirmDialog] when the item being deleted is a device item that has
+ * already been synced to the Plex library (see ViewerViewModel.syncedPlexRatingKey). Lets the
+ * user choose whether the Plex copy should go too.
+ */
+@Composable
+fun SyncedDeleteConfirmDialog(
+    onDismiss: () -> Unit,
+    onDeleteFromBoth: () -> Unit,
+    onPhoneOnly: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete from Plex as well?") },
+        text = { Text("This photo was synced to your Plex library. Deleting it here can also remove it from Plex.") },
+        confirmButton = { TextButton(onClick = onDeleteFromBoth) { Text("Delete from both") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onPhoneOnly) { Text("Phone only") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
     )
 }
 

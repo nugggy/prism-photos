@@ -1,6 +1,7 @@
 package au.prism.photos.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -33,6 +34,7 @@ fun SelectionTopBar(
     onLock: (() -> Unit)? = null,
     onAddToAlbum: (() -> Unit)? = null,
     onRemoveFromAlbum: (() -> Unit)? = null,
+    onUpload: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
     TopAppBar(
@@ -56,6 +58,9 @@ fun SelectionTopBar(
             }
             if (onLock != null) {
                 IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
+            }
+            if (onUpload != null) {
+                IconButton(onClick = onUpload) { Icon(Icons.Filled.CloudUpload, contentDescription = "Upload to Plex") }
             }
             IconButton(onClick = onSelectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Select all") }
             if (onDelete != null) {
