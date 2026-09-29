@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 class AlbumsViewModel(private val graph: AppGraph) : ViewModel() {
     var albums by mutableStateOf<List<Album>>(emptyList())
         private set
+    var myAlbums by mutableStateOf<List<Album>>(emptyList())
+        private set
     var loading by mutableStateOf(true)
         private set
     var error by mutableStateOf<String?>(null)
@@ -26,8 +28,21 @@ class AlbumsViewModel(private val graph: AppGraph) : ViewModel() {
             loading = true
             error = null
             graph.media.rootAlbums()
-                .onSuccess { albums = it.albums; loading = false }
-                .onFailure { error = it.message ?: "Could not load albums"; loading = false }
+                .onSuccess { albums = it.albums }
+                .onFailure { error = it.message ?: "Could not load albums" }
+            graph.media.myAlbums()
+                .onSuccess { myAlbums = it }
+                .onFailure { if (error == null) error = it.message ?: "Could not load albums" }
+            loading = false
+        }
+    }
+
+    fun createMyAlbum(title: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            graph.media.createMyAlbum(title, emptyList())
+                .onSuccess { load() }
+                .onFailure { error = it.message ?: "Couldn't create album" }
         }
     }
 }

@@ -120,6 +120,7 @@ fun AlbumDetailScreen(
     var accentPickerOpen by remember { mutableStateOf(false) }
     var sortPickerOpen by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showAddToAlbum by remember { mutableStateOf(false) }
     var shareItems by remember { mutableStateOf<List<MediaItem>?>(null) }
 
     Scaffold(
@@ -140,6 +141,7 @@ fun AlbumDetailScreen(
                     },
                     onToggleFavourite = { scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear() } },
                     onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )
             } else {
@@ -313,6 +315,18 @@ fun AlbumDetailScreen(
     }
 
     shareItems?.let { toShare -> ShareSheet(items = toShare, onDismiss = { shareItems = null; selection.clear() }) }
+
+    if (showAddToAlbum) {
+        AddToAlbumSheet(
+            itemIds = selection.selected.toList(),
+            onDismiss = { showAddToAlbum = false },
+            onAdded = { title ->
+                showAddToAlbum = false
+                selection.clear()
+                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+            },
+        )
+    }
 }
 
 private fun Modifier.clickableCover(onClick: () -> Unit): Modifier =

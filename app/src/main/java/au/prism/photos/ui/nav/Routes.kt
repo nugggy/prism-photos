@@ -10,12 +10,14 @@ object Routes {
     const val LIBRARIES = "libraries"
     const val HOME = "home"                 // bottom nav host: photos, albums, favourites, device, locked
     const val ALBUM = "album/{albumId}"
+    const val MY_ALBUM = "myalbum/{albumId}"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val VIEWER = "viewer/{source}/{index}"
     const val EDITOR = "editor/{itemId}"
 
     fun album(albumId: String) = "album/$albumId"
+    fun myAlbum(albumId: String) = "myalbum/$albumId"
     fun viewer(source: String, index: Int) = "viewer/$source/$index"
     fun editor(itemId: String) = "editor/$itemId"
 }

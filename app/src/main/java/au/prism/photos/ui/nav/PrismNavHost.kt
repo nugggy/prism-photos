@@ -23,6 +23,7 @@ import au.prism.photos.PrismApp
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.domain.ViewerSource
 import au.prism.photos.ui.albums.AlbumDetailScreen
+import au.prism.photos.ui.albums.MyAlbumDetailScreen
 import au.prism.photos.ui.components.LocalPickHandler
 import au.prism.photos.ui.editor.EditorScreen
 import au.prism.photos.ui.home.HomeScreen
@@ -84,6 +85,7 @@ fun PrismNavHost(
                     onOpenSearch = { navController.navigate(Routes.SEARCH) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenAlbum = { albumId -> navController.navigate(Routes.album(albumId)) },
+                    onOpenMyAlbum = { albumId -> navController.navigate(Routes.myAlbum(albumId)) },
                     onOpenViewer = { source, index -> navController.navigate(Routes.viewer(SourceCodec.encode(source), index)) },
                 )
             }
@@ -97,6 +99,17 @@ fun PrismNavHost(
                     onBack = { navController.popBackStack() },
                     onOpenAlbum = { id -> navController.navigate(Routes.album(id)) },
                     onOpenViewer = { index -> navController.navigate(Routes.viewer(SourceCodec.encode(ViewerSource.Album(albumId)), index)) },
+                )
+            }
+            composable(
+                Routes.MY_ALBUM,
+                arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
+            ) { entry ->
+                val albumId = entry.arguments?.getString("albumId").orEmpty()
+                MyAlbumDetailScreen(
+                    albumId = albumId,
+                    onBack = { navController.popBackStack() },
+                    onOpenViewer = { index -> navController.navigate(Routes.viewer(SourceCodec.encode(ViewerSource.MyAlbum(albumId)), index)) },
                 )
             }
             composable(Routes.SEARCH) {

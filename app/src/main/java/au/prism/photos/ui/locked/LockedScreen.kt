@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PhotoAlbum
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
@@ -46,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import au.prism.photos.PrismApp
 import au.prism.photos.domain.Album
 import au.prism.photos.domain.MediaItem
+import au.prism.photos.ui.albums.AddToAlbumSheet
 import au.prism.photos.ui.components.ConfirmDeleteDialog
 import au.prism.photos.ui.components.EmptyState
 import au.prism.photos.ui.components.MediaSelectionOps
@@ -74,6 +76,7 @@ fun LockedScreen(
         val lockedAlbumIds by graph.local.lockedAlbumIds.collectAsStateWithLifecycle()
         var lockedAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
         var showDeleteConfirm by remember { mutableStateOf(false) }
+        var showAddToAlbum by remember { mutableStateOf(false) }
         var shareItems by remember { mutableStateOf<List<MediaItem>?>(null) }
 
         LaunchedEffect(lockedAlbumIds) {
@@ -98,6 +101,7 @@ fun LockedScreen(
                             IconButton(onClick = { scope.launch { MediaSelectionOps.unlock(graph, selection.selected); selection.clear() } }) {
                                 Icon(Icons.Filled.LockOpen, contentDescription = "Unlock")
                             }
+                            IconButton(onClick = { showAddToAlbum = true }) { Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to album") }
                             IconButton(onClick = { selection.selectAll(items.map { it.id }) }) { Icon(Icons.Filled.SelectAll, contentDescription = "Select all") }
                             IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
                         },
@@ -155,6 +159,18 @@ fun LockedScreen(
         }
 
         shareItems?.let { toShare -> ShareSheet(items = toShare, onDismiss = { shareItems = null; selection.clear() }) }
+
+        if (showAddToAlbum) {
+            AddToAlbumSheet(
+                itemIds = selection.selected.toList(),
+                onDismiss = { showAddToAlbum = false },
+                onAdded = { title ->
+                    showAddToAlbum = false
+                    selection.clear()
+                    scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                },
+            )
+        }
     }
 }
 

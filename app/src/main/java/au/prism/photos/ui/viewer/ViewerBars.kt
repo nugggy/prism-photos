@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.DropdownMenu
@@ -58,6 +59,7 @@ fun ViewerTopBar(
     onEditDescription: () -> Unit,
     onTags: () -> Unit,
     onSetAlbumCover: () -> Unit,
+    onAddToAlbum: () -> Unit,
     onWallpaper: () -> Unit,
     onLockToggle: () -> Unit,
     onSlideshow: () -> Unit,
@@ -93,6 +95,11 @@ fun ViewerTopBar(
                 if (item.albumId != null) {
                     DropdownMenuItem(text = { Text("Set as album cover") }, onClick = { menuOpen = false; onSetAlbumCover() })
                 }
+                DropdownMenuItem(
+                    text = { Text("Add to album") },
+                    leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) },
+                    onClick = { menuOpen = false; onAddToAlbum() },
+                )
                 DropdownMenuItem(
                     text = { Text("Set as wallpaper") },
                     leadingIcon = { Icon(Icons.Filled.Wallpaper, null) },

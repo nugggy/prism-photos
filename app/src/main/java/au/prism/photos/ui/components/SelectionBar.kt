@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +31,8 @@ fun SelectionTopBar(
     onDownload: () -> Unit,
     onToggleFavourite: (() -> Unit)? = null,
     onLock: (() -> Unit)? = null,
+    onAddToAlbum: (() -> Unit)? = null,
+    onRemoveFromAlbum: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
 ) {
     TopAppBar(
@@ -43,6 +47,12 @@ fun SelectionTopBar(
                 IconButton(onClick = onToggleFavourite) {
                     Icon(if (allFavourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, contentDescription = "Favourite")
                 }
+            }
+            if (onAddToAlbum != null) {
+                IconButton(onClick = onAddToAlbum) { Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to album") }
+            }
+            if (onRemoveFromAlbum != null) {
+                IconButton(onClick = onRemoveFromAlbum) { Icon(Icons.Filled.PlaylistRemove, contentDescription = "Remove from album") }
             }
             if (onLock != null) {
                 IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
