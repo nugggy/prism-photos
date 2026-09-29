@@ -22,7 +22,7 @@
     <string name="videoeditor_resolution_720">720p</string>
     <string name="videoeditor_reset_colour">Reset colour</string>
     <string name="videoeditor_export">Export to Plex Gallery</string>
-    <string name="videoeditor_exporting">Exporting…</string>
+    <string name="videoeditor_exporting">Exporting</string>
     <string name="videoeditor_export_cancel">Cancel</string>
     <string name="videoeditor_export_saved">Saved to Movies/Plex Gallery</string>
     <string name="videoeditor_share">Share</string>

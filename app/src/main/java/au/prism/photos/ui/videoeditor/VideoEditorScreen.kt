@@ -130,8 +130,8 @@ fun VideoEditorScreen(
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize().background(Color.Black)) {
             when (val phase = sourcePhase) {
-                is SourcePhase.Preparing -> LoadingState("Preparing…")
-                is SourcePhase.Downloading -> LoadingState("Downloading clip… ${(phase.fraction * 100).toInt()}%", phase.fraction)
+                is SourcePhase.Preparing -> LoadingState("Preparing")
+                is SourcePhase.Downloading -> LoadingState("Downloading clip ${(phase.fraction * 100).toInt()}%", phase.fraction)
                 is SourcePhase.Error -> ErrorState(phase.message, onCancel)
                 is SourcePhase.Ready -> {
                     Column(Modifier.fillMaxSize()) {
@@ -293,7 +293,7 @@ private fun ExportPanel(
                 ) { Text("Export to Plex Gallery") }
             }
             is ExportPhase.Exporting -> {
-                Text("Exporting… ${(exportPhase.fraction * 100).toInt()}%", color = Color.White)
+                Text("Exporting ${(exportPhase.fraction * 100).toInt()}%", color = Color.White)
                 LinearProgressIndicator(
                     progress = { exportPhase.fraction },
                     color = PlexGold,

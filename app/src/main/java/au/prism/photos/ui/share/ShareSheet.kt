@@ -115,7 +115,7 @@ fun ShareSheet(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("Preparing…", style = MaterialTheme.typography.bodySmall)
+                    Text("Preparing", style = MaterialTheme.typography.bodySmall)
                 }
                 error != null -> {
                     Text(error ?: "", color = MaterialTheme.colorScheme.error)
