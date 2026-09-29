@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.awaitAll
@@ -124,15 +126,33 @@ class MediaRepositoryImpl(
         refreshTimeline(force = true)
     }
 
+    private var refreshJob: Deferred<Unit>? = null
+
+    /**
+     * Runs the refresh on the repository's own application scope so that navigating away from the
+     * screen that asked for it cannot cancel the network requests. Callers that are cancelled simply
+     * stop waiting; the refresh itself carries on and updates [timeline] when done.
+     */
     override suspend fun refreshTimeline(force: Boolean) {
         val sess = session.session.value
         if (!sess.hasLibrary) return
-        if (timelineStateFlow.value == LoadState.Loading && !force) return
         val libKey = sess.libraryKey ?: return
+        val job = synchronized(this) {
+            val existing = refreshJob
+            if (existing != null && existing.isActive) {
+                existing
+            } else {
+                scope.async { doRefresh(libKey, sess.active?.uri, sess.active?.kind?.name) }.also { refreshJob = it }
+            }
+        }
+        job.await()
+    }
+
+    private suspend fun doRefresh(libKey: String, uri: String?, kind: String?) {
         timelineStateFlow.value = LoadState.Loading
-        Diagnostics.log("Refreshing library $libKey via ${sess.active?.uri} (${sess.active?.kind})")
-        val photos = runCatching { fetchAllPages(libKey, type = 13) }
-        val clips = runCatching { fetchAllPages(libKey, type = 12) }
+        Diagnostics.log("Refreshing library $libKey via $uri ($kind)")
+        val photos = attempt { fetchAllPages(libKey, type = 13) }
+        val clips = attempt { fetchAllPages(libKey, type = 12) }
         val photosErr = photos.exceptionOrNull()
         val clipsErr = clips.exceptionOrNull()
         if (photosErr != null && clipsErr != null) {
@@ -141,16 +161,28 @@ class MediaRepositoryImpl(
             timelineStateFlow.value = LoadState.Error(message)
             return
         }
-        // Second source: walk the album folders the way Plex organises photo libraries. This does not
-        // depend on the numeric type filters, which some servers answer differently.
-        val walked = runCatching { walkAlbums(libKey) }
-        walked.exceptionOrNull()?.let { Diagnostics.log("Album walk failed: ${describe(it)}") }
-        val merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()), walked.getOrDefault(emptyList()))
-            .distinctBy { it.id }
+        var merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()))
+        // Second source, only when the type filters found nothing: walk the album folders the way
+        // Plex organises photo libraries. This does not depend on the numeric type filters.
+        if (merged.isEmpty()) {
+            val walked = attempt { walkAlbums(libKey) }
+            walked.exceptionOrNull()?.let { Diagnostics.log("Album walk failed: ${describe(it)}") }
+            merged = mergeTimelines(merged, walked.getOrDefault(emptyList()))
+        }
+        merged = merged.distinctBy { it.id }
         Diagnostics.log("Timeline ready: ${merged.size} items (${merged.count { !it.isVideo }} photos, ${merged.count { it.isVideo }} videos)")
         allItems.value = merged
         persistCache(merged)
         timelineStateFlow.value = LoadState.Loaded
+    }
+
+    /** Like runCatching, but never swallows coroutine cancellation. */
+    private inline fun <T> attempt(block: () -> T): Result<T> = try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     /** Recursively lists every photo and video by walking albums from the library root. */
@@ -168,14 +200,14 @@ class MediaRepositoryImpl(
         }
         absorb(root)
         var albumsWalked = 0
-        val semaphore = kotlinx.coroutines.sync.Semaphore(4)
+        val semaphore = Semaphore(4)
         while (queue.isNotEmpty() && albumsWalked < 5000) {
             val batch = generateSequence { queue.poll() }.take(32).toList()
             kotlinx.coroutines.coroutineScope {
                 batch.map { albumId ->
                     async {
                         semaphore.withPermit {
-                            runCatching { apiCall { token -> children(albumId, token) }.mediaContainer }
+                            attempt { apiCall { token -> children(albumId, token) }.mediaContainer }
                                 .onFailure { Diagnostics.log("Album $albumId failed: ${describe(it)}") }
                                 .getOrNull()?.let { absorb(it) }
                         }
@@ -228,6 +260,8 @@ class MediaRepositoryImpl(
                     return items
                 }
                 Diagnostics.log("Type $type $name request returned 0 items (server total $total), trying the next approach")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 lastError = e
                 Diagnostics.log("Type $type $name request failed: ${describe(e)}")

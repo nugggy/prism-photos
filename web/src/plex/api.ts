@@ -132,12 +132,15 @@ export async function fetchTimeline(
   if (clipResult.status === 'rejected') console.warn('Videos request failed', clipResult.reason)
   const photos = (photoResult.status === 'fulfilled' ? photoResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
   const clips = (clipResult.status === 'fulfilled' ? clipResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
-  // Second source: walk the album folders, which does not depend on numeric type filters.
+  // Second source, only when the type filters found nothing: walk the album folders, which does
+  // not depend on numeric type filters.
   let walked: MediaItem[] = []
-  try {
-    walked = await walkAlbums(server, sectionKey, fetchImpl)
-  } catch (e) {
-    console.warn('Album walk failed', e)
+  if (photos.length === 0 && clips.length === 0) {
+    try {
+      walked = await walkAlbums(server, sectionKey, fetchImpl)
+    } catch (e) {
+      console.warn('Album walk failed', e)
+    }
   }
   return dedupeById(mergeTimeline(photos, [...clips, ...walked]))
 }
