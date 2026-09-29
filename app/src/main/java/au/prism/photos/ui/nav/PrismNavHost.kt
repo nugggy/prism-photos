@@ -153,6 +153,29 @@ fun PrismNavHost(
                     onCancel = { navController.popBackStack() },
                 )
             }
+            composable(
+                Routes.VIDEO_EDITOR,
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+            ) { entry ->
+                val itemId = java.net.URLDecoder.decode(entry.arguments?.getString("itemId").orEmpty(), "UTF-8")
+                au.prism.photos.ui.videoeditor.VideoEditorScreen(
+                    itemId = itemId,
+                    onDone = { navController.popBackStack() },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
+            composable(
+                Routes.UPLOAD,
+                arguments = listOf(navArgument("uris") { type = NavType.StringType }),
+            ) { entry ->
+                val uris = java.net.URLDecoder.decode(entry.arguments?.getString("uris").orEmpty(), "UTF-8")
+                    .split("|").filter { it.isNotBlank() }
+                au.prism.photos.ui.upload.UploadScreen(
+                    uris = uris,
+                    onDone = { navController.popBackStack() },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
         }
     }
 

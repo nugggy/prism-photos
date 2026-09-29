@@ -290,3 +290,16 @@ These findings override the sections above where they differ. Both clients imple
   - rename: `PUT /playlists/{id}?title={t}`
   - delete: `DELETE /playlists/{id}` (204)
   Folder albums (`type=14`) cannot be modified through the API.
+
+## Uploading to the server (verified 30/09/2026)
+
+Plex Media Server has NO upload endpoint for photo libraries (every candidate path returns 404 on
+1.43.4; camera upload was removed from Plex years ago). The only way in is the filesystem: write
+the file into the library folder, then ask Plex to scan:
+
+- Library folder: `GET /library/sections` -> `Directory[].Location[].path` (on the tested server a
+  QNAP NAS share: `/share/CACHEDEV1_DATA/Nuggy NAS Shared Folder/PLEX Library/Photos`).
+- Scan after writing: `GET /library/sections/{key}/refresh` (whole library) or
+  `GET /library/sections/{key}/refresh?path={urlencoded server folder path}` (one folder).
+- The Android app writes over SMB (jcifs-ng) or WebDAV (HTTP PUT with basic auth) using
+  credentials the user enters in Settings. The web app cannot upload (browsers have no SMB).

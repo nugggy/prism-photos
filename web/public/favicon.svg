@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#1F2326"/><circle cx="54" cy="54" r="44" fill="#282A2D"/><g fill="#E5A00D"><path opacity=".95" d="M54 20 67 27.5 60.5 39 54 35.5Z"/><path opacity=".75" d="M83.4 37v15H70.2v-7.5Z"/><path opacity=".95" d="M83.4 71 70.4 78.5 63.9 67l6.5-3.5Z"/><path opacity=".75" d="M54 88 41 80.5 47.5 69l6.5 3.5Z"/><path opacity=".95" d="M24.6 71V56h13.2v7.5Z"/><path opacity=".75" d="M24.6 37l13-7.5 6.5 11.5-6.5 3.5Z"/><path d="M45.5 40h9l9 14-9 14h-9l9-14Z"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <rect width="108" height="108" rx="24" fill="#1F2326"/>
+  <path fill="#E5A00D" d="M31 38h13l4-8h16l4 8h9c4.4 0 8 3.6 8 8v26c0 4.4-3.6 8-8 8H31c-4.4 0-8-3.6-8-8V46c0-4.4 3.6-8 8-8Z"/>
+  <circle cx="74" cy="44" r="2.5" fill="#1F2326"/>
+  <circle cx="54" cy="59" r="16" fill="#1F2326"/>
+  <circle cx="54" cy="59" r="12.5" fill="#E5A00D" opacity=".25"/>
+  <path fill="#E5A00D" d="M48.5 50h5l6 9-6 9h-5l6-9Z"/>
+</svg>

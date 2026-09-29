@@ -2,20 +2,18 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Aperture ring made of six blades, Plex gold -->
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.95"
-        android:pathData="M54,20 L67,27.5 L60.5,39 L54,35.5 Z"/>
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.75"
-        android:pathData="M83.4,37 L83.4,52 L70.2,52 L70.2,44.5 Z"/>
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.95"
-        android:pathData="M83.4,71 L70.4,78.5 L63.9,67 L70.4,63.5 Z"/>
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.75"
-        android:pathData="M54,88 L41,80.5 L47.5,69 L54,72.5 Z"/>
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.95"
-        android:pathData="M24.6,71 L24.6,56 L37.8,56 L37.8,63.5 Z"/>
-    <path android:fillColor="#E5A00D" android:fillAlpha="0.75"
-        android:pathData="M24.6,37 L37.6,29.5 L44.1,41 L37.6,44.5 Z"/>
-    <!-- Plex style play chevron in the centre -->
+    <!-- Camera body in Plex gold -->
     <path android:fillColor="#E5A00D"
-        android:pathData="M45.5,40 L54.5,40 L63.5,54 L54.5,68 L45.5,68 L54.5,54 Z"/>
+        android:pathData="M31,38 L44,38 L48,30 L64,30 L68,38 L77,38 C81.4,38 85,41.6 85,46 L85,72 C85,76.4 81.4,80 77,80 L31,80 C26.6,80 23,76.4 23,72 L23,46 C23,41.6 26.6,38 31,38 Z"/>
+    <!-- Flash -->
+    <path android:fillColor="#1F2326"
+        android:pathData="M74,44 m-2.5,0 a2.5,2.5 0,1 1,5 0 a2.5,2.5 0,1 1,-5 0"/>
+    <!-- Lens ring -->
+    <path android:fillColor="#1F2326"
+        android:pathData="M54,59 m-16,0 a16,16 0,1 1,32 0 a16,16 0,1 1,-32 0"/>
+    <path android:fillColor="#E5A00D" android:fillAlpha="0.25"
+        android:pathData="M54,59 m-12.5,0 a12.5,12.5 0,1 1,25 0 a12.5,12.5 0,1 1,-25 0"/>
+    <!-- Plex chevron inside the lens -->
+    <path android:fillColor="#E5A00D"
+        android:pathData="M48.5,50 L53.5,50 L59.5,59 L53.5,68 L48.5,68 L54.5,59 Z"/>
 </vector>

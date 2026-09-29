@@ -15,11 +15,16 @@ object Routes {
     const val SETTINGS = "settings"
     const val VIEWER = "viewer/{source}/{index}"
     const val EDITOR = "editor/{itemId}"
+    const val VIDEO_EDITOR = "videoeditor/{itemId}"
+    const val UPLOAD = "upload/{uris}"
 
     fun album(albumId: String) = "album/$albumId"
     fun myAlbum(albumId: String) = "myalbum/$albumId"
     fun viewer(source: String, index: Int) = "viewer/$source/$index"
     fun editor(itemId: String) = "editor/$itemId"
+    fun videoEditor(itemId: String) = "videoeditor/${java.net.URLEncoder.encode(itemId, "UTF-8")}"
+    /** [uris] are content URIs of device items; joined with | and URL encoded. */
+    fun upload(uris: List<String>) = "upload/${java.net.URLEncoder.encode(uris.joinToString("|"), "UTF-8")}"
 }
 
 /**
