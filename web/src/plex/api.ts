@@ -77,23 +77,23 @@ async function fetchAllPages(
   path: string,
   extraParams: Record<string, string>,
   fetchImpl: typeof fetch,
-): Promise<PlexMetadataDto[]> {
+  paged = true,
+): Promise<{ items: PlexMetadataDto[]; total: number }> {
   const results: PlexMetadataDto[] = []
   let start = 0
+  let total = 0
   for (;;) {
-    const params = new URLSearchParams({
-      ...extraParams,
-      'X-Plex-Container-Start': String(start),
-      'X-Plex-Container-Size': String(PAGE_SIZE),
-    })
+    const params = new URLSearchParams(
+      paged ? { ...extraParams, 'X-Plex-Container-Start': String(start), 'X-Plex-Container-Size': String(PAGE_SIZE) } : extraParams,
+    )
     const dto = await plexFetch<PlexMediaContainerDto>(server, `${path}?${params.toString()}`, {}, fetchImpl)
     const page = dto.MediaContainer.Metadata ?? []
     results.push(...page)
-    const total = dto.MediaContainer.totalSize ?? dto.MediaContainer.size ?? page.length
+    total = dto.MediaContainer.totalSize ?? dto.MediaContainer.size ?? page.length
     start += page.length
-    if (page.length === 0 || start >= total) break
+    if (!paged || page.length === 0 || start >= total) break
   }
-  return results
+  return { items: results, total }
 }
 
 /** Fetches the full timeline (photos + clips) for a section, merged and sorted newest first. */
@@ -103,13 +103,28 @@ export async function fetchTimeline(
   fetchImpl: typeof fetch = fetch,
 ): Promise<MediaItem[]> {
   // Try the server side sort first and fall back to the default order (we sort locally anyway).
+  // Some servers answer a sorted or paged request with zero items and no error, so step down
+  // through sorted+paged, unsorted+paged and unsorted+unpaged until something comes back.
   const fetchType = async (type: string): Promise<PlexMetadataDto[]> => {
-    try {
-      return await fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type, sort: 'originallyAvailableAt:desc' }, fetchImpl)
-    } catch (e) {
-      console.warn(`Sorted request for type ${type} failed, retrying without sort`, e)
-      return fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type }, fetchImpl)
+    const path = `/library/sections/${sectionKey}/all`
+    const attempts: Array<{ name: string; params: Record<string, string>; paged: boolean }> = [
+      { name: 'sorted', params: { type, sort: 'originallyAvailableAt:desc' }, paged: true },
+      { name: 'unsorted', params: { type }, paged: true },
+      { name: 'unpaged', params: { type }, paged: false },
+    ]
+    let lastError: unknown = null
+    for (const attempt of attempts) {
+      try {
+        const { items, total } = await fetchAllPages(server, path, attempt.params, fetchImpl, attempt.paged)
+        if (items.length > 0) return items
+        console.warn(`Type ${type} ${attempt.name} request returned 0 items (server total ${total}); trying the next approach`)
+      } catch (e) {
+        lastError = e
+        console.warn(`Type ${type} ${attempt.name} request failed`, e)
+      }
     }
+    if (lastError) throw lastError
+    return []
   }
   const [photoResult, clipResult] = await Promise.allSettled([fetchType('13'), fetchType('12')])
   if (photoResult.status === 'rejected' && clipResult.status === 'rejected') throw photoResult.reason
@@ -215,8 +230,8 @@ export async function fetchFavourites(
   fetchImpl: typeof fetch = fetch,
 ): Promise<MediaItem[]> {
   const [photoDtos, clipDtos] = await Promise.all([
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '13', 'userRating>=': '10' }, fetchImpl),
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '12', 'userRating>=': '10' }, fetchImpl),
+    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '13', 'userRating>=': '10' }, fetchImpl).then((r) => r.items),
+    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '12', 'userRating>=': '10' }, fetchImpl).then((r) => r.items),
   ])
   const photos = photoDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
   const clips = clipDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
@@ -245,7 +260,7 @@ export async function searchLibrary(
     }
     if (filters.tag) params.tag = filters.tag
     if (filters.year) params.year = String(filters.year)
-    const dtos = await fetchAllPages(server, path, params, fetchImpl)
+    const dtos = (await fetchAllPages(server, path, params, fetchImpl)).items
     results.push(...dtos.map((d) => mapMetadataToMediaItem(d, sectionKey)))
   }
   return dedupeById(mergeTimeline(results, []))

@@ -212,34 +212,50 @@ class MediaRepositoryImpl(
     private suspend fun fetchAllPages(libraryKey: String, type: Int): List<MediaItem> {
         val label = if (type == 13) "photos" else "videos"
         val started = System.currentTimeMillis()
-        // Try the server side sort first, then fall back to the server's default order (we sort locally anyway).
-        return try {
-            fetchPages(libraryKey, type, sort = "originallyAvailableAt:desc").also {
-                Diagnostics.log("Fetched ${it.size} $label (type $type, sorted) in ${System.currentTimeMillis() - started} ms")
-            }
-        } catch (e: Exception) {
-            Diagnostics.log("Sorted $label request failed: ${describe(e)}. Retrying without sort")
-            fetchPages(libraryKey, type, sort = null).also {
-                Diagnostics.log("Fetched ${it.size} $label (type $type, unsorted) in ${System.currentTimeMillis() - started} ms")
+        // Some servers answer a sorted or paged request with zero items and no error, so step down
+        // through sorted+paged, unsorted+paged and unsorted+unpaged until something comes back.
+        val attempts = listOf(
+            Triple("sorted", "originallyAvailableAt:desc", true),
+            Triple("unsorted", null, true),
+            Triple("unpaged", null, false),
+        )
+        var lastError: Exception? = null
+        for ((name, sort, paged) in attempts) {
+            try {
+                val (items, total) = fetchPages(libraryKey, type, sort, paged)
+                if (items.isNotEmpty()) {
+                    Diagnostics.log("Fetched ${items.size} $label (type $type, $name) in ${System.currentTimeMillis() - started} ms")
+                    return items
+                }
+                Diagnostics.log("Type $type $name request returned 0 items (server total $total), trying the next approach")
+            } catch (e: Exception) {
+                lastError = e
+                Diagnostics.log("Type $type $name request failed: ${describe(e)}")
             }
         }
+        lastError?.let { throw it }
+        Diagnostics.log("No $label found by type $type")
+        return emptyList()
     }
 
-    private suspend fun fetchPages(libraryKey: String, type: Int, sort: String?): List<MediaItem> {
+    private suspend fun fetchPages(libraryKey: String, type: Int, sort: String?, paged: Boolean): Pair<List<MediaItem>, Int> {
         val out = mutableListOf<MediaItem>()
         var start = 0
         val pageSize = 500
+        var total = 0
         while (true) {
-            val container = apiCall { token -> sectionAll(libraryKey, token, type, sort, start, pageSize) }
+            val container = apiCall { token ->
+                if (paged) sectionAll(libraryKey, token, type, sort, start, pageSize) else sectionAll(libraryKey, token, type, sort, null, null)
+            }
             val mc = container.mediaContainer
             val page = mc.metadata.map { mapItem(it, libraryKey) }
             out += page
-            val total = mc.totalSize ?: mc.size ?: page.size
-            if (start == 0) Diagnostics.log("Type $type page 1: ${page.size} items, size=${mc.size}, totalSize=${mc.totalSize}")
+            total = mc.totalSize ?: mc.size ?: page.size
+            if (start == 0) Diagnostics.log("Type $type page 1 ($sort, paged=$paged): ${page.size} items, size=${mc.size}, totalSize=${mc.totalSize}")
             start += pageSize
-            if (page.isEmpty() || page.size < pageSize || start >= total) break
+            if (!paged || page.isEmpty() || page.size < pageSize || start >= total) break
         }
-        return out
+        return out to total
     }
 
     // ---- libraries & albums ----
