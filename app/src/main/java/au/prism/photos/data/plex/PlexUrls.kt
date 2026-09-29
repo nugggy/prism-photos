@@ -40,7 +40,7 @@ object PlexUrls {
             "?path=$path&mediaIndex=0&partIndex=0&protocol=hls&fastSeek=1&directPlay=0&directStream=1" +
             "&videoQuality=100&maxVideoBitrate=20000&videoResolution=1920x1080" +
             "&session=${enc(sessionId)}&X-Plex-Client-Identifier=${enc(clientId)}" +
-            "&X-Plex-Platform=${enc(platform)}&X-Plex-Product=Prism&X-Plex-Token=${enc(token)}"
+            "&X-Plex-Platform=${enc(platform)}&X-Plex-Product=Plex%20Gallery&X-Plex-Token=${enc(token)}"
     }
 
     fun stopTranscode(serverUri: String, sessionId: String, token: String): String =

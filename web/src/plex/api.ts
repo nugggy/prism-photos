@@ -102,12 +102,21 @@ export async function fetchTimeline(
   sectionKey: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<MediaItem[]> {
-  const [photoDtos, clipDtos] = await Promise.all([
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '13', sort: 'originallyAvailableAt:desc' }, fetchImpl),
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '12', sort: 'originallyAvailableAt:desc' }, fetchImpl),
-  ])
-  const photos = photoDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
-  const clips = clipDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
+  // Try the server side sort first and fall back to the default order (we sort locally anyway).
+  const fetchType = async (type: string): Promise<PlexMetadataDto[]> => {
+    try {
+      return await fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type, sort: 'originallyAvailableAt:desc' }, fetchImpl)
+    } catch (e) {
+      console.warn(`Sorted request for type ${type} failed, retrying without sort`, e)
+      return fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type }, fetchImpl)
+    }
+  }
+  const [photoResult, clipResult] = await Promise.allSettled([fetchType('13'), fetchType('12')])
+  if (photoResult.status === 'rejected' && clipResult.status === 'rejected') throw photoResult.reason
+  if (photoResult.status === 'rejected') console.warn('Photos request failed', photoResult.reason)
+  if (clipResult.status === 'rejected') console.warn('Videos request failed', clipResult.reason)
+  const photos = (photoResult.status === 'fulfilled' ? photoResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
+  const clips = (clipResult.status === 'fulfilled' ? clipResult.value : []).map((d) => mapMetadataToMediaItem(d, sectionKey))
   return dedupeById(mergeTimeline(photos, clips))
 }
 

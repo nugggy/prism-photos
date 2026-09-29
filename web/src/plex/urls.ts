@@ -68,7 +68,7 @@ export function buildHlsTranscodeUrl(server: ServerRef, options: HlsTranscodeOpt
     session: options.session,
     'X-Plex-Client-Identifier': options.clientIdentifier,
     'X-Plex-Platform': options.platform ?? 'Web',
-    'X-Plex-Product': 'Prism',
+    'X-Plex-Product': 'Plex Gallery',
     'X-Plex-Token': server.token,
   })
   return `${base}/video/:/transcode/universal/start.m3u8?${params.toString()}`

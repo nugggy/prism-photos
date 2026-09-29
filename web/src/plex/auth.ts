@@ -26,7 +26,7 @@ export function buildAuthUrl(pin: PlexPin, forwardUrl?: string): string {
   const params = new URLSearchParams({
     clientID: getClientIdentifier(),
     code: pin.code,
-    'context[device][product]': 'Prism',
+    'context[device][product]': 'Plex Gallery',
   })
   // With forwardUrl Plex sends the browser back to the app after authorising,
   // so the whole flow can run in one tab (mobile browsers freeze background tabs).

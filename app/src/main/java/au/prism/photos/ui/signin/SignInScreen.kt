@@ -85,7 +85,7 @@ fun SignInScreen(
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text("Prism", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text("Plex Gallery", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
                 "Your Plex photos, done properly",

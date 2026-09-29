@@ -52,13 +52,13 @@ export interface PlexHeadersOptions {
 export function buildPlexHeaders(options: PlexHeadersOptions = {}): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: options.accept ?? 'application/json',
-    'X-Plex-Product': 'Prism',
+    'X-Plex-Product': 'Plex Gallery',
     'X-Plex-Version': APP_VERSION,
     'X-Plex-Client-Identifier': getClientIdentifier(),
     'X-Plex-Platform': 'Web',
     'X-Plex-Platform-Version': typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
     'X-Plex-Device': browserName(),
-    'X-Plex-Device-Name': 'Prism',
+    'X-Plex-Device-Name': 'Plex Gallery',
   }
   if (options.token) {
     headers['X-Plex-Token'] = options.token

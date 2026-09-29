@@ -53,7 +53,7 @@
                 <data android:mimeType="image/*" />
                 <data android:mimeType="video/*" />
             </intent-filter>
-            <!-- Let other apps pick photos from Prism -->
+            <!-- Let other apps pick photos from Plex Gallery -->
             <intent-filter>
                 <action android:name="android.intent.action.PICK" />
                 <action android:name="android.intent.action.GET_CONTENT" />

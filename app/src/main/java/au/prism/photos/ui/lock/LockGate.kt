@@ -113,7 +113,7 @@ private fun LockScreen(onUnlocked: () -> Unit) {
                 },
             )
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock Prism")
+                .setTitle("Unlock Plex Gallery")
                 .setSubtitle("Locked items")
                 .setAllowedAuthenticators(
                     BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
@@ -124,7 +124,7 @@ private fun LockScreen(onUnlocked: () -> Unit) {
             val keyguardManager = context.getSystemService(KeyguardManager::class.java)
             if (keyguardManager != null && keyguardManager.isDeviceSecure) {
                 val intent = keyguardManager.createConfirmDeviceCredentialIntent(
-                    "Unlock Prism",
+                    "Unlock Plex Gallery",
                     "Confirm your PIN, pattern or password",
                 )
                 if (intent != null) credentialLauncher.launch(intent)

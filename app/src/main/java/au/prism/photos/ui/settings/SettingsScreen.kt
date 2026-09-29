@@ -16,6 +16,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -225,11 +229,13 @@ fun SettingsScreen(
             }
 
             item { HorizontalDivider() }
+            item { SectionHeader("Diagnostics") }
+            item { DiagnosticsPanel(onReload = { scope.launch { graph.media.refreshTimeline(force = true) } }) }
             item { SectionHeader("About") }
             item {
                 ListItem(
-                    headlineContent = { Text("Prism") },
-                    supportingContent = { Text("A clean, professional photo library client for Plex Media Server. Prism is not affiliated with Plex Inc.") },
+                    headlineContent = { Text("Plex Gallery") },
+                    supportingContent = { Text("A clean, professional photo library client for Plex Media Server. Plex Gallery is not affiliated with Plex Inc.") },
                 )
             }
         }
@@ -311,4 +317,37 @@ private fun ClickableRow(title: String, onClick: () -> Unit, danger: Boolean = f
             .fillMaxWidth()
             .clickable(onClick = onClick),
     )
+}
+
+@Composable
+private fun DiagnosticsPanel(onReload: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lines by au.prism.photos.data.Diagnostics.lines.collectAsStateWithLifecycle()
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            "What the app last did when loading your library. Copy this if something is not showing up.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.padding(12.dp)) {
+                if (lines.isEmpty()) {
+                    Text("Nothing logged yet.", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    lines.takeLast(12).forEach { line ->
+                        Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onReload) { Text("Reload library") }
+            OutlinedButton(onClick = {
+                val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Diagnostics", au.prism.photos.data.Diagnostics.asText()))
+            }) { Text("Copy diagnostics") }
+        }
+    }
 }

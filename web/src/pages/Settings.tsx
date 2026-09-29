@@ -64,7 +64,7 @@ export function Settings(): React.ReactElement {
       return
     }
     if (!(await isWebAuthnAvailable())) return
-    const ok = await registerBiometricUnlock(username ?? 'Prism user')
+    const ok = await registerBiometricUnlock(username ?? 'Plex Gallery user')
     setBiometricsOn(ok)
   }
 
@@ -181,7 +181,7 @@ export function Settings(): React.ReactElement {
       <div className="card">
         <h2 style={{ fontSize: 15, marginTop: 0 }}>About</h2>
         <p className="muted" style={{ fontSize: 13 }}>
-          Prism is not affiliated with Plex Inc. Prism is a client for your own Plex Media Server; Plex remains the source of
+          Plex Gallery is an independent app and is not affiliated with or endorsed by Plex Inc. It is a client for your own Plex Media Server; Plex remains the source of
           truth for your library.
         </p>
       </div>

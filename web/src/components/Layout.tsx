@@ -15,7 +15,7 @@ export function Layout(): React.ReactElement {
   return (
     <div className="app-shell">
       <nav className="left-rail" aria-label="Main navigation">
-        <img src="logo.svg" alt="Prism" width={40} height={40} style={{ marginBottom: 12 }} />
+        <img src="logo.svg" alt="Plex Gallery" width={40} height={40} style={{ marginBottom: 12 }} />
         {NAV_ITEMS.map((item) => (
           <NavLink key={item.to} to={item.to} className={({ isActive }) => `rail-link${isActive ? ' active' : ''}`} aria-label={item.label}>
             <Icon name={item.icon} />

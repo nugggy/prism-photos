@@ -1,4 +1,4 @@
-# Prism
+# Plex Gallery
 
 A better photo library for Plex. Prism talks directly to your Plex Media Server
 and gives you a proper gallery: a fast timeline, albums, favourites, search, a
@@ -12,7 +12,7 @@ Two clients share one design and one Plex API reference (`docs/plex-api.md`):
 Repository: https://github.com/nugggy/prism-photos
 Live web app: https://nugggy.github.io/prism-photos/
 
-Prism is not affiliated with Plex Inc.
+Plex Gallery (package name still "Prism" internally) is an independent project, not affiliated with or endorsed by Plex Inc.
 
 ## Features
 

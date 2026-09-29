@@ -165,7 +165,7 @@ export function ServerPicker(): React.ReactElement {
         ))}
       </div>
       <p className="muted" style={{ fontSize: 13, marginTop: -8 }}>
-        On a page loaded over https, plain http server addresses cannot be used (browsers block mixed content). Prism prefers
+        On a page loaded over https, plain http server addresses cannot be used (browsers block mixed content). Plex Gallery prefers
         *.plex.direct https addresses, which also resolve to the LAN IP.
       </p>
 

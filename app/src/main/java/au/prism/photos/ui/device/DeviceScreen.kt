@@ -174,7 +174,7 @@ private fun PermissionRequestCard(onRequest: () -> Unit) {
         Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = PlexGold)
         Text("Allow access to your photos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         Text(
-            "Prism needs permission to show the photos and videos already on this phone.",
+            "Plex Gallery needs permission to show the photos and videos already on this phone.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
@@ -193,9 +193,9 @@ private fun DefaultGalleryCard(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         Column(Modifier.padding(16.dp)) {
-            Text("Set Prism as your default gallery", style = MaterialTheme.typography.titleSmall)
+            Text("Set Plex Gallery as your default gallery", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Open a photo from any app, pick Prism, then tap Always.",
+                "Open a photo from any app, pick Plex Gallery, then tap Always.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),

@@ -126,16 +126,31 @@ class MediaRepositoryImpl(
         if (timelineStateFlow.value == LoadState.Loading && !force) return
         val libKey = sess.libraryKey ?: return
         timelineStateFlow.value = LoadState.Loading
-        try {
-            val photos = fetchAllPages(libKey, type = 13)
-            val clips = fetchAllPages(libKey, type = 12)
-            val merged = mergeTimelines(photos, clips)
-            allItems.value = merged
-            persistCache(merged)
-            timelineStateFlow.value = LoadState.Loaded
-        } catch (e: Exception) {
-            timelineStateFlow.value = LoadState.Error(e.message ?: "Couldn't load your library")
+        Diagnostics.log("Refreshing library $libKey via ${sess.active?.uri} (${sess.active?.kind})")
+        val photos = runCatching { fetchAllPages(libKey, type = 13) }
+        val clips = runCatching { fetchAllPages(libKey, type = 12) }
+        val photosErr = photos.exceptionOrNull()
+        val clipsErr = clips.exceptionOrNull()
+        if (photosErr != null && clipsErr != null) {
+            val message = describe(photosErr)
+            Diagnostics.log("Library refresh failed: $message")
+            timelineStateFlow.value = LoadState.Error(message)
+            return
         }
+        val merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()))
+        Diagnostics.log("Timeline ready: ${merged.size} items (${photos.getOrNull()?.size ?: 0} photos, ${clips.getOrNull()?.size ?: 0} videos)")
+        allItems.value = merged
+        persistCache(merged)
+        timelineStateFlow.value = LoadState.Loaded
+    }
+
+    /** Human readable description of a failed request, including the HTTP status and body when available. */
+    private fun describe(e: Throwable): String = when (e) {
+        is HttpException -> {
+            val body = runCatching { e.response()?.errorBody()?.string()?.take(200) }.getOrNull().orEmpty()
+            "HTTP ${e.code()} ${e.message()}".trim() + if (body.isNotBlank()) " $body" else ""
+        }
+        else -> "${e::class.java.simpleName}: ${e.message ?: "no message"}"
     }
 
     private suspend fun persistCache(items: List<MediaItem>) {
@@ -144,15 +159,32 @@ class MediaRepositoryImpl(
     }
 
     private suspend fun fetchAllPages(libraryKey: String, type: Int): List<MediaItem> {
+        val label = if (type == 13) "photos" else "videos"
+        val started = System.currentTimeMillis()
+        // Try the server side sort first, then fall back to the server's default order (we sort locally anyway).
+        return try {
+            fetchPages(libraryKey, type, sort = "originallyAvailableAt:desc").also {
+                Diagnostics.log("Fetched ${it.size} $label (type $type, sorted) in ${System.currentTimeMillis() - started} ms")
+            }
+        } catch (e: Exception) {
+            Diagnostics.log("Sorted $label request failed: ${describe(e)}. Retrying without sort")
+            fetchPages(libraryKey, type, sort = null).also {
+                Diagnostics.log("Fetched ${it.size} $label (type $type, unsorted) in ${System.currentTimeMillis() - started} ms")
+            }
+        }
+    }
+
+    private suspend fun fetchPages(libraryKey: String, type: Int, sort: String?): List<MediaItem> {
         val out = mutableListOf<MediaItem>()
         var start = 0
         val pageSize = 500
         while (true) {
-            val container = apiCall { token -> sectionAll(libraryKey, token, type, "originallyAvailableAt:desc", start, pageSize) }
+            val container = apiCall { token -> sectionAll(libraryKey, token, type, sort, start, pageSize) }
             val mc = container.mediaContainer
             val page = mc.metadata.map { mapItem(it, libraryKey) }
             out += page
             val total = mc.totalSize ?: mc.size ?: page.size
+            if (start == 0) Diagnostics.log("Type $type page 1: ${page.size} items, size=${mc.size}, totalSize=${mc.totalSize}")
             start += pageSize
             if (page.isEmpty() || page.size < pageSize || start >= total) break
         }

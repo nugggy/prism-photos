@@ -31,7 +31,7 @@ class PlexAuthImpl(
     }
 
     override fun authUrl(pin: PlexPin): String =
-        "https://app.plex.tv/auth#?clientID=${clientIdProvider()}&code=${pin.code}&context%5Bdevice%5D%5Bproduct%5D=Prism"
+        "https://app.plex.tv/auth#?clientID=${clientIdProvider()}&code=${pin.code}&context%5Bdevice%5D%5Bproduct%5D=Plex%20Gallery"
 
     override suspend fun pollPin(pinId: Long): Result<String?> = runCatching {
         plexTvApi.getPin(pinId).authToken

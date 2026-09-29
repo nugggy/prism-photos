@@ -84,7 +84,7 @@ object MediaActions {
     private fun downloadValues(item: MediaItem) = ContentValues().apply {
         put(MediaStore.Downloads.DISPLAY_NAME, fileNameFor(item))
         put(MediaStore.Downloads.MIME_TYPE, mimeFor(item))
-        put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Prism")
+        put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Plex Gallery")
         put(MediaStore.Downloads.IS_PENDING, 1)
     }
 

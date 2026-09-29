@@ -47,7 +47,7 @@ class PlexUrlsTest {
         assertTrue(url.contains("session=session-1"))
         assertTrue(url.contains("X-Plex-Client-Identifier=client-id"))
         assertTrue(url.contains("X-Plex-Platform=Android"))
-        assertTrue(url.contains("X-Plex-Product=Prism"))
+        assertTrue(url.contains("X-Plex-Product=Plex%20Gallery"))
         assertTrue(url.contains("X-Plex-Token=$token"))
     }
 

@@ -46,7 +46,7 @@ export function formatDuration(ms: number): string {
 }
 
 /** Filename timestamp used for editor exports, e.g. Prism_20260929_143022.jpg */
-export function exportFileName(prefix = 'Prism'): string {
+export function exportFileName(prefix = 'PlexGallery'): string {
   const now = new Date()
   const y = now.getFullYear()
   const m = String(now.getMonth() + 1).padStart(2, '0')

@@ -3,7 +3,7 @@
 // wherever unsupported.
 
 const CREDENTIAL_ID_KEY = 'prism.webauthnCredentialId'
-const RP_NAME = 'Prism'
+const RP_NAME = 'Plex Gallery'
 
 export async function isWebAuthnAvailable(): Promise<boolean> {
   if (!window.PublicKeyCredential) return false

@@ -115,7 +115,7 @@ export function SignIn(): React.ReactElement {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <img src="logo.svg" alt="" width={44} height={44} />
           <div>
-            <h1 style={{ margin: 0, fontSize: 22 }}>Prism</h1>
+            <h1 style={{ margin: 0, fontSize: 22 }}>Plex Gallery</h1>
             <p className="muted" style={{ margin: 0, fontSize: 13 }}>A better photo library for Plex</p>
           </div>
         </div>
@@ -132,7 +132,7 @@ export function SignIn(): React.ReactElement {
         {mode === 'plex' && (
           <div>
             <p className="muted" style={{ fontSize: 14 }}>
-              Sign in with your Plex account. You will be taken to plex.tv to authorise Prism and brought straight back.
+              Sign in with your Plex account. You will be taken to plex.tv to authorise Plex Gallery and brought straight back.
             </p>
             {pinCode && (
               <p style={{ fontSize: 14 }}>

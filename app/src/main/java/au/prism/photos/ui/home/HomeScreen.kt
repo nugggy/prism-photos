@@ -77,7 +77,7 @@ fun HomeScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(session.libraryTitle ?: "Prism") },
+                    title = { Text(session.libraryTitle ?: "Plex Gallery") },
                     actions = {
                         IconButton(onClick = onOpenSearch) { Icon(Icons.Filled.Search, contentDescription = "Search") }
                         if (updateVm.available != null) {
@@ -100,7 +100,7 @@ fun HomeScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                         ) {
                             Text(
-                                "Prism ${updateVm.available!!.versionName} is available. Tap to update.",
+                                "Plex Gallery ${updateVm.available!!.versionName} is available. Tap to update.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.clip(MaterialTheme.shapes.small),
