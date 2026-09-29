@@ -123,7 +123,9 @@ export async function fetchAlbumRoot(
   fetchImpl: typeof fetch = fetch,
 ): Promise<AlbumChildren> {
   const dto = await plexFetch<PlexMediaContainerDto>(server, `/library/sections/${sectionKey}/all`, {}, fetchImpl)
-  const metadata = dto.MediaContainer.Metadata ?? []
+  // Some server versions list albums under Directory rather than Metadata; accept both.
+  const directory = ((dto.MediaContainer as { Directory?: PlexMetadataDto[] }).Directory ?? []).map((d) => ({ ...d, type: d.type ?? 'photoalbum' }))
+  const metadata = [...directory, ...(dto.MediaContainer.Metadata ?? [])]
   return splitAlbumChildren(metadata, sectionKey, null)
 }
 

@@ -72,6 +72,11 @@ export function MediaGrid({
     overscan: 6,
   })
 
+  // Row heights depend on the cell size, which changes with container width and density.
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [cellSize, density, rowVirtualizer])
+
   // Fast scroll month index (desktop only, per CSS).
   const monthIndex = useMemo(() => rows.filter((r) => r.type === 'header') as Extract<Row, { type: 'header' }>[], [rows])
   const scrollToMonth = useCallback(

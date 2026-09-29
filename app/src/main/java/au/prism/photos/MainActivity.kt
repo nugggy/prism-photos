@@ -102,6 +102,11 @@ class MainActivity : ComponentActivity() {
         finish()
     }
 
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        PipState.inPip = isInPictureInPictureMode
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (PipState.videoPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
