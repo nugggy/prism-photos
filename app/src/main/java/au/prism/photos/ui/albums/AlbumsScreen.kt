@@ -176,7 +176,7 @@ fun AlbumCard(album: Album, onClick: () -> Unit, badge: String? = null) {
         }
         Text(album.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
         if (album.itemCount > 0) {
-            Text("${album.itemCount} items", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (album.itemCount == 1) "1 item" else "${album.itemCount} items", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

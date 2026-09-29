@@ -91,7 +91,7 @@ fun AddToAlbumSheet(
                         ListItem(
                             headlineContent = { Text(album.title) },
                             supportingContent = if (album.itemCount > 0) {
-                                { Text("${album.itemCount} items") }
+                                { Text(if (album.itemCount == 1) "1 item" else "${album.itemCount} items") }
                             } else null,
                             leadingContent = { Icon(Icons.Filled.PhotoAlbum, contentDescription = null) },
                             modifier = Modifier.clickable(enabled = !busy) {

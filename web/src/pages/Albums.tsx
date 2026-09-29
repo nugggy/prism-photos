@@ -5,6 +5,7 @@ import { useSessionStore } from '../state/sessionStore'
 import { useLockStore } from '../state/lockStore'
 import { useAlbumPrefsStore } from '../state/albumPrefsStore'
 import { fetchAlbumRoot, fetchMyAlbums, createMyAlbum } from '../plex/api'
+import { useTimeline } from '../lib/useTimeline'
 import { buildThumbUrl } from '../plex/urls'
 import type { Album } from '../plex/model'
 import { getCachedAlbumChildren, setCachedAlbumChildren } from '../lib/cache'
@@ -20,7 +21,7 @@ function AlbumCard({ album, to, server, accentColor, locked }: { album: Album; t
       </div>
       <div style={{ marginTop: 6, fontSize: 13 }}>
         <strong>{album.title}</strong>
-        <div className="muted">{album.itemCount} items</div>
+        {album.itemCount > 0 && <div className="muted">{album.itemCount === 1 ? '1 item' : `${album.itemCount} items`}</div>}
       </div>
     </Link>
   )
@@ -34,6 +35,7 @@ export function Albums(): React.ReactElement {
   const isAlbumLocked = useLockStore((s) => s.isAlbumLocked)
   const getPrefs = useAlbumPrefsStore((s) => s.getPrefs)
   const navigate = useNavigate()
+  const timeline = useTimeline()
 
   const [folders, setFolders] = useState<Album[]>([])
   const [loadingFolders, setLoadingFolders] = useState(true)
@@ -87,7 +89,7 @@ export function Albums(): React.ReactElement {
     setBusy(true)
     setCreateError(null)
     try {
-      const album = await createMyAlbum(server, machineId, newTitle.trim(), [])
+      const album = await createMyAlbum(server, machineId, newTitle.trim(), [], undefined, timeline.items[0]?.id)
       setCreating(false)
       setNewTitle('')
       loadMyAlbums()

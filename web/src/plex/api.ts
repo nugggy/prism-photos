@@ -453,13 +453,27 @@ export async function createMyAlbum(
   title: string,
   itemIds: string[],
   fetchImpl: typeof fetch = fetch,
+  seedItemId?: string,
 ): Promise<Album> {
+  // Plex refuses to create a playlist with no items (400). For an empty album, seed it with one
+  // item and remove that item again straight after.
+  const seeded = itemIds.length === 0
+  const ids = seeded ? (seedItemId ? [seedItemId] : []) : itemIds
+  if (ids.length === 0) throw new PlexApiError('Open a photo and use Add to album to create your first album.')
   const params = new URLSearchParams({ type: 'photo', smart: '0', title })
-  if (itemIds.length > 0) params.set('uri', buildPlaylistUri(machineIdentifier, itemIds))
+  params.set('uri', buildPlaylistUri(machineIdentifier, ids))
   const dto = await plexFetch<PlexMediaContainerDto>(server, `/playlists?${params.toString()}`, { method: 'POST' }, fetchImpl)
   const meta = dto.MediaContainer.Metadata?.[0]
   if (!meta) throw new PlexApiError('The album was not created.')
-  return mapMetadataToPlaylistAlbum(meta)
+  const album = mapMetadataToPlaylistAlbum(meta)
+  if (seeded) {
+    try {
+      await removeFromMyAlbum(server, album.id, ids, fetchImpl)
+    } catch (e) {
+      console.warn('Could not remove the seed item from the new album', e)
+    }
+  }
+  return { ...album, itemCount: seeded ? 0 : album.itemCount }
 }
 
 /** Adds items to an existing "My album". Plex silently ignores items already in it. */

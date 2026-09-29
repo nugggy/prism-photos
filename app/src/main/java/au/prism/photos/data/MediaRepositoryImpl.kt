@@ -423,10 +423,21 @@ class MediaRepositoryImpl(
 
     // ---- My albums (Plex photo playlists) ----
 
-    private fun playlistUri(itemIds: List<String>): String {
-        val machine = session.session.value.server?.clientIdentifier.orEmpty()
-        return "server://$machine/com.plexapp.plugins.library/library/metadata/${itemIds.joinToString(",")}"
+    private var cachedMachineId: String? = null
+
+    /** The server's own machine identifier from /identity (the session value is a placeholder for manual connections). */
+    private suspend fun machineIdentifier(): String {
+        cachedMachineId?.let { return it }
+        val fromServer = attempt { apiCall { identity() }.mediaContainer.machineIdentifier }.getOrNull()
+        val id = fromServer?.takeIf { it.isNotBlank() }
+            ?: session.session.value.server?.clientIdentifier?.takeIf { it.isNotBlank() && it != "manual" }
+            ?: throw IllegalStateException("Could not read the server identifier")
+        cachedMachineId = id
+        return id
     }
+
+    private suspend fun playlistUri(itemIds: List<String>): String =
+        "server://${machineIdentifier()}/com.plexapp.plugins.library/library/metadata/${itemIds.joinToString(",")}"
 
     private fun mapPlaylist(m: MetadataDto): Album = Album(
         id = m.ratingKey ?: extractRatingKey(m.key).orEmpty(),
