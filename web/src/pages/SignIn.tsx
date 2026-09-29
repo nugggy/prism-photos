@@ -1,0 +1,146 @@
+import { useCallback, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { buildAuthUrl, createPin, fetchPlexUser, pollUntilAuthorised } from '../plex/auth'
+import { fetchIdentity, verifyManualServer } from '../plex/api'
+import { useSessionStore } from '../state/sessionStore'
+
+export function SignIn(): React.ReactElement {
+  const navigate = useNavigate()
+  const setAccount = useSessionStore((s) => s.setAccount)
+  const selectServer = useSessionStore((s) => s.selectServer)
+  const setActiveConnection = useSessionStore((s) => s.setActiveConnection)
+
+  const [mode, setMode] = useState<'plex' | 'manual'>('plex')
+
+  const [pinCode, setPinCode] = useState<string | null>(null)
+  const [signingIn, setSigningIn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const cancelRef = useRef(false)
+
+  const [manualUrl, setManualUrl] = useState('')
+  const [manualToken, setManualToken] = useState('')
+  const [manualBusy, setManualBusy] = useState(false)
+
+  const startPlexSignIn = useCallback(async () => {
+    setError(null)
+    setSigningIn(true)
+    cancelRef.current = false
+    try {
+      const pin = await createPin()
+      setPinCode(pin.code)
+      const authUrl = buildAuthUrl(pin)
+      window.open(authUrl, '_blank', 'noopener,noreferrer')
+      const token = await pollUntilAuthorised(pin.id, {
+        onTick: () => {
+          if (cancelRef.current) throw new Error('Sign-in cancelled.')
+        },
+      })
+      const user = await fetchPlexUser(token)
+      setAccount(token, user.username || user.title || user.email)
+      navigate('/servers')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign-in failed.')
+    } finally {
+      setSigningIn(false)
+      setPinCode(null)
+    }
+  }, [navigate, setAccount])
+
+  const submitManual = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      setError(null)
+      setManualBusy(true)
+      try {
+        const baseUrl = manualUrl.trim().replace(/\/$/, '')
+        const server = { baseUrl, token: manualToken.trim() }
+        await verifyManualServer(server)
+        const machineId = await fetchIdentity(baseUrl)
+        selectServer('manual', server.token, machineId)
+        setActiveConnection({ baseUrl, kind: 'manual' })
+        navigate('/servers')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not connect to that server.')
+      } finally {
+        setManualBusy(false)
+      }
+    },
+    [manualUrl, manualToken, navigate, selectServer, setActiveConnection],
+  )
+
+  return (
+    <div className="center-screen">
+      <div className="card" style={{ width: 420, maxWidth: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <img src="logo.svg" alt="" width={44} height={44} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22 }}>Prism</h1>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>A better photo library for Plex</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button className={`chip${mode === 'plex' ? ' active' : ''}`} onClick={() => setMode('plex')} type="button">
+            Sign in with Plex
+          </button>
+          <button className={`chip${mode === 'manual' ? ' active' : ''}`} onClick={() => setMode('manual')} type="button">
+            Connect manually
+          </button>
+        </div>
+
+        {mode === 'plex' && (
+          <div>
+            <p className="muted" style={{ fontSize: 14 }}>
+              Sign in with your Plex account. A new tab will open to authorise Prism.
+            </p>
+            {pinCode && (
+              <p style={{ fontSize: 14 }}>
+                Waiting for authorisation. If the tab did not open, your code is <strong>{pinCode}</strong>.
+              </p>
+            )}
+            {error && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{error}</p>}
+            <button className="btn btn-primary" onClick={() => void startPlexSignIn()} disabled={signingIn} style={{ width: '100%', justifyContent: 'center' }}>
+              {signingIn ? 'Waiting for authorisation…' : 'Sign in with Plex'}
+            </button>
+          </div>
+        )}
+
+        {mode === 'manual' && (
+          <form onSubmit={(e) => void submitManual(e)}>
+            <p className="muted" style={{ fontSize: 14 }}>
+              For servers not linked to a Plex account, or for a direct LAN address.
+            </p>
+            <label htmlFor="manual-url" style={{ fontSize: 13 }}>
+              Server URL
+            </label>
+            <input
+              id="manual-url"
+              className="input"
+              placeholder="http://192.168.1.20:32400"
+              value={manualUrl}
+              onChange={(e) => setManualUrl(e.target.value)}
+              required
+              style={{ marginBottom: 10, marginTop: 4 }}
+            />
+            <label htmlFor="manual-token" style={{ fontSize: 13 }}>
+              Access token
+            </label>
+            <input
+              id="manual-token"
+              className="input"
+              placeholder="X-Plex-Token"
+              value={manualToken}
+              onChange={(e) => setManualToken(e.target.value)}
+              required
+              style={{ marginBottom: 10, marginTop: 4 }}
+            />
+            {error && <p style={{ color: 'var(--danger)', fontSize: 14 }}>{error}</p>}
+            <button className="btn btn-primary" type="submit" disabled={manualBusy} style={{ width: '100%', justifyContent: 'center' }}>
+              {manualBusy ? 'Connecting…' : 'Connect'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
