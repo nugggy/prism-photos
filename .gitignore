@@ -16,3 +16,5 @@ keystore.properties
 .claude/
 scripts/sample.mp4
 scripts/.mock-cache/
+prism-release.jks*
+keystore-secrets.txt

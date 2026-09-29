@@ -24,6 +24,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.PRISM_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -73,8 +75,9 @@ jobs:
           SRC=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
           cp "$SRC" "out/prism-${{ steps.ver.outputs.name }}-release.apk"
 
+      # Only publish to the Release when the APK is signed; an unsigned APK cannot be installed.
       - name: Create GitHub Release
-        if: ${{ github.ref_type == 'tag' }}
+        if: ${{ github.ref_type == 'tag' && env.HAS_KEYSTORE == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           files: out/*.apk
