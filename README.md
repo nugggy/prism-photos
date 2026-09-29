@@ -9,6 +9,9 @@ Two clients share one design and one Plex API reference (`docs/plex-api.md`):
 - `app/` Android app (Kotlin, Jetpack Compose, Media3). Built for a OnePlus 15 on Android 16, runs on Android 10 and up.
 - `web/` Web app (Vite, React, TypeScript, PWA). Runs on port 1111 and deploys to GitHub Pages.
 
+Repository: https://github.com/nugggy/prism-photos
+Live web app: https://nugggy.github.io/prism-photos/
+
 Prism is not affiliated with Plex Inc.
 
 ## Features
