@@ -35,8 +35,14 @@ class PlexHeaders(private val clientIdProvider: () -> String) : Interceptor {
  * it out for the real, dynamically chosen server URI on every call.
  */
 class DynamicBaseUrlInterceptor(private val activeBaseUrlProvider: () -> String?) : Interceptor {
+    companion object {
+        /** Retrofit base host that gets swapped for the active Plex server. Other hosts pass through untouched. */
+        const val PLACEHOLDER_HOST = "prism-server.invalid"
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val original = chain.request()
+        if (original.url.host != PLACEHOLDER_HOST) return chain.proceed(original)
         val activeBase = activeBaseUrlProvider()?.toHttpUrlOrNull() ?: return chain.proceed(original)
         val newUrl = original.url.newBuilder()
             .scheme(activeBase.scheme)

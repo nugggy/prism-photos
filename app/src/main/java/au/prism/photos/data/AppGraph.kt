@@ -84,7 +84,7 @@ class AppGraph(val app: Application) {
         .create(PlexTvApi::class.java)
 
     private val plexServerApi: PlexServerApi = Retrofit.Builder()
-        .baseUrl("http://prism-server.invalid/")
+        .baseUrl("http://${DynamicBaseUrlInterceptor.PLACEHOLDER_HOST}/")
         .client(plexServerHttpClient)
         .addConverterFactory(converterFactory)
         .build()
