@@ -99,7 +99,7 @@ private fun ServerRow(server: PlexServer, status: ProbeStatus?, onClick: () -> U
                     when (status) {
                         is ProbeStatus.Ok -> Text("Connected · ${status.active.kind}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         is ProbeStatus.Failed -> Text(status.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        ProbeStatus.Checking -> Text("Checking connection…", style = MaterialTheme.typography.bodySmall)
+                        ProbeStatus.Checking -> Text("Checking connection", style = MaterialTheme.typography.bodySmall)
                         null -> {}
                     }
                 }

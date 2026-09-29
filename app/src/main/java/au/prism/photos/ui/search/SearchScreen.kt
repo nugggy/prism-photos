@@ -134,7 +134,7 @@ fun SearchScreen(
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = { Text("Search photos, tags, places…") },
+                            placeholder = { Text("Search photos, tags and places") },
                             singleLine = true,
                             trailingIcon = {
                                 if (query.isNotEmpty()) {

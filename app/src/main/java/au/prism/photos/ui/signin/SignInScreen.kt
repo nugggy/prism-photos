@@ -113,7 +113,7 @@ fun SignInScreen(
                 is SignInUiState.Signing -> {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(8.dp))
-                    Text("Signing in…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Signing in", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 is SignInUiState.Error -> {
                     Text(state.message, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)

@@ -202,7 +202,7 @@ fun SettingsScreen(
             }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Button(onClick = { updateVm.checkNow(manual = true) }, enabled = !updateVm.checking) { Text(if (updateVm.checking) "Checking…" else "Check for updates") }
+                    Button(onClick = { updateVm.checkNow(manual = true) }, enabled = !updateVm.checking) { Text(if (updateVm.checking) "Checking" else "Check for updates") }
                     updateVm.manualMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }

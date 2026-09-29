@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         if (item.isLocal && item.localUri != null) {
             finishPick(Uri.parse(item.localUri))
         } else {
-            Toast.makeText(this, "Downloading ‘${item.title}’…", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Downloading ${item.title}", Toast.LENGTH_SHORT).show()
             scope.launch {
                 val result = au.prism.photos.ui.viewer.MediaActions.download(this@MainActivity, listOf(item))
                 if (result.isSuccess) {
