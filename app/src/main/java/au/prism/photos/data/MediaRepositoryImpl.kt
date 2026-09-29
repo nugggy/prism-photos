@@ -175,6 +175,19 @@ class MediaRepositoryImpl(
     private suspend fun doRefresh(libKey: String, uri: String?, kind: String?) {
         timelineStateFlow.value = LoadState.Loading
         Diagnostics.log("Refreshing library $libKey via $uri ($kind)")
+        // Plex 1.43 and later: the flat, paged timeline is all?clusterZoomLevel=1 (photos and videos together).
+        // Plain type filters return nothing on those servers, so try this first.
+        val flat = attempt { fetchFlatTimeline(libKey) }
+        flat.exceptionOrNull()?.let { Diagnostics.log("Flat timeline request failed: ${describe(it)}") }
+        val flatItems = flat.getOrDefault(emptyList())
+        if (flatItems.isNotEmpty()) {
+            val merged = flatItems.distinctBy { it.id }.sortedByDescending { it.takenAt }
+            Diagnostics.log("Timeline ready: ${merged.size} items (${merged.count { !it.isVideo }} photos, ${merged.count { it.isVideo }} videos)")
+            allItems.value = merged
+            persistCache(merged)
+            timelineStateFlow.value = LoadState.Loaded
+            return
+        }
         val photos = attempt { fetchAllPages(libKey, type = 13) }
         val clips = attempt { fetchAllPages(libKey, type = 12) }
         val photosErr = photos.exceptionOrNull()
@@ -218,8 +231,8 @@ class MediaRepositoryImpl(
         val queue = java.util.concurrent.ConcurrentLinkedQueue<String>()
         fun absorb(mc: MetadataMediaContainerDto) {
             mc.metadata.filter { isMediaItem(it) }.map { mapItem(it, libraryKey) }.forEach { if (it.id.isNotBlank()) items[it.id] = it }
-            val albumIds = mc.directory.filter { it.type == "photoalbum" }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) } +
-                mc.metadata.filter { it.type == "photoalbum" }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) }
+            val albumIds = mc.directory.filter { it.type == "photoalbum" || it.key?.endsWith("/children") == true }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) } +
+                mc.metadata.filter { isAlbumDto(it) }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) }
             albumIds.forEach { if (seenAlbums.add(it)) queue.add(it) }
         }
         absorb(root)
@@ -244,9 +257,33 @@ class MediaRepositoryImpl(
         return items.values.toList()
     }
 
+    /** Whole library, newest first, through the paged clusterZoomLevel listing. Empty on servers that do not support it. */
+    private suspend fun fetchFlatTimeline(libraryKey: String): List<MediaItem> {
+        val started = System.currentTimeMillis()
+        val out = mutableListOf<MediaItem>()
+        var start = 0
+        val pageSize = 500
+        val extra = mapOf("clusterZoomLevel" to "1")
+        while (true) {
+            val mc = apiCall { token -> sectionAll(libraryKey, token, null, "originallyAvailableAt:desc", start, pageSize, extra) }.mediaContainer
+            val page = mc.metadata.filter { isMediaItem(it) }.map { mapItem(it, libraryKey) }
+            out += page
+            val total = mc.totalSize ?: mc.size ?: page.size
+            if (start == 0) Diagnostics.log("Flat timeline page 1: ${mc.metadata.size} entries, totalSize=${mc.totalSize}")
+            start += pageSize
+            if (mc.metadata.isEmpty() || mc.metadata.size < pageSize || start >= total) break
+        }
+        Diagnostics.log("Flat timeline: ${out.size} items in ${System.currentTimeMillis() - started} ms")
+        return out
+    }
+
+    /** Albums: Plex reports them as photoalbum, or (1.43 and later) as photo entries whose key ends in /children. */
+    private fun isAlbumDto(dto: MetadataDto): Boolean =
+        dto.type == "photoalbum" || (dto.key?.endsWith("/children") == true)
+
     /** True for anything that is a photo or a video, whatever the server calls it. */
     private fun isMediaItem(dto: MetadataDto): Boolean {
-        if (dto.type == "photoalbum") return false
+        if (isAlbumDto(dto)) return false
         if (dto.type == "photo" || dto.type == "clip" || dto.type == "video") return true
         return dto.media.any { it.part.isNotEmpty() }
     }
@@ -327,8 +364,10 @@ class MediaRepositoryImpl(
 
     override suspend fun rootAlbums(): Result<AlbumContents> = runCatching {
         val libKey = session.session.value.libraryKey ?: throw IllegalStateException("No library selected")
-        val container = apiCall { token -> sectionAll(libKey, token, null, null, null, null) }
-        buildAlbumContents(container.mediaContainer, libKey)
+        // type=14 lists albums on every server version we have seen; the plain listing is the fallback.
+        val albums = attempt { apiCall { token -> sectionAll(libKey, token, 14, null, 0, 2000) }.mediaContainer }.getOrNull()
+        val container = if (albums != null && albums.metadata.isNotEmpty()) albums else apiCall { token -> sectionAll(libKey, token, null, null, null, null) }.mediaContainer
+        buildAlbumContents(container, libKey)
     }
 
     override suspend fun albumContents(albumId: String): Result<AlbumContents> = runCatching {
@@ -348,10 +387,11 @@ class MediaRepositoryImpl(
     private fun buildAlbumContents(mc: MetadataMediaContainerDto, libraryKey: String): AlbumContents {
         val lockedAlbumIds = local.lockedAlbumIds.value
         val lockedItemIds = local.lockedItemIds.value
-        val albums = (mc.directory.filter { it.type == "photoalbum" }.map { mapAlbumFromDirectory(it, libraryKey) } +
-            mc.metadata.filter { it.type == "photoalbum" }.map { mapAlbumFromMetadata(it, libraryKey) })
+        val albums = (mc.directory.filter { it.type == "photoalbum" || it.key?.endsWith("/children") == true }.map { mapAlbumFromDirectory(it, libraryKey) } +
+            mc.metadata.filter { isAlbumDto(it) }.map { mapAlbumFromMetadata(it, libraryKey) })
             .filter { it.id.isNotBlank() && it.id !in lockedAlbumIds }
-        val items = mc.metadata.filter { it.type == "photo" || it.type == "clip" }
+            .distinctBy { it.id }
+        val items = mc.metadata.filter { isMediaItem(it) }
             .map { mapItem(it, libraryKey) }
             .filter { it.id !in lockedItemIds }
         return AlbumContents(albums = albums, items = items)
@@ -385,17 +425,30 @@ class MediaRepositoryImpl(
 
     override suspend fun favourites(): Result<List<MediaItem>> = runCatching {
         val libKey = session.session.value.libraryKey ?: throw IllegalStateException("No library selected")
-        val extra = mapOf("userRating>" to "10")
-        val photos = apiCall { token -> sectionAll(libKey, token, 13, null, null, null, extra) }.mediaContainer.metadata.map { mapItem(it, libKey) }
-        val clips = apiCall { token -> sectionAll(libKey, token, 12, null, null, null, extra) }.mediaContainer.metadata.map { mapItem(it, libKey) }
-        filterLocked(photos + clips).sortedByDescending { it.takenAt }
+        // No type filter: on Plex 1.43 type filters return nothing, and this form returns photos and videos together.
+        val extra = mapOf("clusterZoomLevel" to "1", "userRating>" to "10")
+        var found = apiCall { token -> sectionAll(libKey, token, null, null, null, null, extra) }.mediaContainer.metadata
+            .filter { isMediaItem(it) }.map { mapItem(it, libKey) }
+        if (found.isEmpty()) {
+            val legacy = mapOf("userRating>" to "10")
+            val photos = attempt { apiCall { token -> sectionAll(libKey, token, 13, null, null, null, legacy) }.mediaContainer.metadata }.getOrDefault(emptyList())
+            val clips = attempt { apiCall { token -> sectionAll(libKey, token, 12, null, null, null, legacy) }.mediaContainer.metadata }.getOrDefault(emptyList())
+            found = (photos + clips).filter { isMediaItem(it) }.map { mapItem(it, libKey) }
+        }
+        filterLocked(found.distinctBy { it.id }).sortedByDescending { it.takenAt }
     }
 
     override suspend fun search(query: String): Result<List<MediaItem>> = runCatching {
         val libKey = session.session.value.libraryKey ?: throw IllegalStateException("No library selected")
-        val photos = apiCall { token -> this.search(libKey, 13, query, token) }.mediaContainer.metadata.map { mapItem(it, libKey) }
-        val clips = apiCall { token -> this.search(libKey, 12, query, token) }.mediaContainer.metadata.map { mapItem(it, libKey) }
-        filterLocked(photos + clips).sortedByDescending { it.takenAt }
+        val photos = attempt { apiCall { token -> this.search(libKey, 13, query, token) }.mediaContainer.metadata }.getOrDefault(emptyList())
+            .filter { isMediaItem(it) }.map { mapItem(it, libKey) }
+        val clips = attempt { apiCall { token -> this.search(libKey, 12, query, token) }.mediaContainer.metadata }.getOrDefault(emptyList())
+            .filter { isMediaItem(it) }.map { mapItem(it, libKey) }
+        val byTitle = if (photos.isEmpty() && clips.isEmpty()) {
+            attempt { apiCall { token -> sectionAll(libKey, token, null, null, 0, 500, mapOf("clusterZoomLevel" to "1", "title" to enc(query))) }.mediaContainer.metadata }
+                .getOrDefault(emptyList()).filter { isMediaItem(it) }.map { mapItem(it, libKey) }
+        } else emptyList()
+        filterLocked((photos + clips + byTitle).distinctBy { it.id }).sortedByDescending { it.takenAt }
     }
 
     private fun filterLocked(items: List<MediaItem>): List<MediaItem> {

@@ -86,7 +86,9 @@ async function fetchAllPages(
     const params = new URLSearchParams(
       paged ? { ...extraParams, 'X-Plex-Container-Start': String(start), 'X-Plex-Container-Size': String(PAGE_SIZE) } : extraParams,
     )
-    const dto = await plexFetch<PlexMediaContainerDto>(server, `${path}?${params.toString()}`, {}, fetchImpl)
+    // Plex rejects percent encoded comparison operators (userRating%3E%3D10 is a 400), so restore them.
+    const query = params.toString().replace(/%3E%3D/g, '>=').replace(/%3C%3D/g, '<=').replace(/%3E/g, '>').replace(/%3C/g, '<')
+    const dto = await plexFetch<PlexMediaContainerDto>(server, `${path}?${query}`, {}, fetchImpl)
     const page = dto.MediaContainer.Metadata ?? []
     results.push(...page)
     total = dto.MediaContainer.totalSize ?? dto.MediaContainer.size ?? page.length
@@ -103,6 +105,15 @@ export async function fetchTimeline(
   fetchImpl: typeof fetch = fetch,
 ): Promise<MediaItem[]> {
   // Try the server side sort first and fall back to the default order (we sort locally anyway).
+  // Plex 1.43 and later: the flat, paged timeline is all?clusterZoomLevel=1 (photos and videos together).
+  // Plain type filters return nothing on those servers, so try this first.
+  try {
+    const flat = await fetchAllPages(server, `/library/sections/${sectionKey}/all`, { clusterZoomLevel: '1', sort: 'originallyAvailableAt:desc' }, fetchImpl)
+    const flatItems = flat.items.filter(isMediaDto).map((d) => mapMetadataToMediaItem(d, sectionKey))
+    if (flatItems.length > 0) return dedupeById(mergeTimeline(flatItems, []))
+  } catch (e) {
+    console.warn('Flat timeline request failed, falling back to type filters', e)
+  }
   // Some servers answer a sorted or paged request with zero items and no error, so step down
   // through sorted+paged, unsorted+paged and unsorted+unpaged until something comes back.
   const fetchType = async (type: string): Promise<PlexMetadataDto[]> => {
@@ -145,8 +156,13 @@ export async function fetchTimeline(
   return dedupeById(mergeTimeline(photos, [...clips, ...walked]))
 }
 
-function isMediaDto(m: PlexMetadataDto): boolean {
-  if (m.type === 'photoalbum') return false
+/** Albums: Plex reports them as photoalbum, or (1.43 and later) as photo entries whose key ends in /children. */
+export function isAlbumDto(m: PlexMetadataDto): boolean {
+  return m.type === 'photoalbum' || (m.key ?? '').endsWith('/children')
+}
+
+export function isMediaDto(m: PlexMetadataDto): boolean {
+  if (isAlbumDto(m)) return false
   if (m.type === 'photo' || m.type === 'clip' || m.type === 'video') return true
   return (m.Media ?? []).some((media) => (media.Part ?? []).length > 0)
 }
@@ -160,7 +176,7 @@ export async function walkAlbums(server: ServerRef, sectionKey: string, fetchImp
     const directory = ((mc as { Directory?: PlexMetadataDto[] }).Directory ?? []).map((d) => ({ ...d, type: d.type ?? 'photoalbum' }))
     const all = [...directory, ...(mc.Metadata ?? [])]
     for (const m of all) {
-      if (m.type === 'photoalbum') {
+      if (isAlbumDto(m)) {
         const id = m.ratingKey ?? (m.key ?? '').match(/\/library\/metadata\/(\d+)/)?.[1]
         if (id && !seen.has(id)) { seen.add(id); queue.push(id) }
       } else if (isMediaDto(m)) {
@@ -194,6 +210,13 @@ export async function fetchAlbumRoot(
   sectionKey: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<AlbumChildren> {
+  // type=14 lists albums on every server version we have seen; the plain listing is the fallback.
+  try {
+    const byType = await fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '14' }, fetchImpl)
+    if (byType.items.length > 0) return splitAlbumChildren(byType.items.map((d) => ({ ...d, type: 'photoalbum' })), sectionKey, null)
+  } catch (e) {
+    console.warn('type=14 album listing failed, using the plain listing', e)
+  }
   const dto = await plexFetch<PlexMediaContainerDto>(server, `/library/sections/${sectionKey}/all`, {}, fetchImpl)
   // Some server versions list albums under Directory rather than Metadata; accept both.
   const directory = ((dto.MediaContainer as { Directory?: PlexMetadataDto[] }).Directory ?? []).map((d) => ({ ...d, type: d.type ?? 'photoalbum' }))
@@ -216,10 +239,15 @@ export async function fetchAlbumChildren(
 function splitAlbumChildren(metadata: PlexMetadataDto[], sectionKey: string, parentId: string | null): AlbumChildren {
   const albums: Album[] = []
   const items: MediaItem[] = []
+  const seen = new Set<string>()
   for (const m of metadata) {
-    if (m.type === 'photoalbum') {
-      albums.push(mapMetadataToAlbum(m, sectionKey, parentId))
-    } else if (m.type === 'photo' || m.type === 'clip') {
+    if (isAlbumDto(m)) {
+      const album = mapMetadataToAlbum(m, sectionKey, parentId)
+      if (album.id && !seen.has(album.id)) {
+        seen.add(album.id)
+        albums.push(album)
+      }
+    } else if (isMediaDto(m)) {
       items.push(mapMetadataToMediaItem(m, sectionKey))
     }
   }
@@ -232,13 +260,17 @@ export async function fetchFavourites(
   sectionKey: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<MediaItem[]> {
-  const [photoDtos, clipDtos] = await Promise.all([
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '13', 'userRating>=': '10' }, fetchImpl).then((r) => r.items),
-    fetchAllPages(server, `/library/sections/${sectionKey}/all`, { type: '12', 'userRating>=': '10' }, fetchImpl).then((r) => r.items),
-  ])
-  const photos = photoDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
-  const clips = clipDtos.map((d) => mapMetadataToMediaItem(d, sectionKey))
-  return dedupeById(mergeTimeline(photos, clips))
+  // No type filter: on Plex 1.43 type filters return nothing, and this form returns photos and videos together.
+  const path = `/library/sections/${sectionKey}/all`
+  let found = (await fetchAllPages(server, path, { clusterZoomLevel: '1', 'userRating>': '10' }, fetchImpl, false)).items.filter(isMediaDto)
+  if (found.length === 0) {
+    const [photoDtos, clipDtos] = await Promise.all([
+      fetchAllPages(server, path, { type: '13', 'userRating>': '10' }, fetchImpl).then((r) => r.items).catch(() => [] as PlexMetadataDto[]),
+      fetchAllPages(server, path, { type: '12', 'userRating>': '10' }, fetchImpl).then((r) => r.items).catch(() => [] as PlexMetadataDto[]),
+    ])
+    found = [...photoDtos, ...clipDtos].filter(isMediaDto)
+  }
+  return dedupeById(mergeTimeline(found.map((d) => mapMetadataToMediaItem(d, sectionKey)), []))
 }
 
 export interface SearchFilters {
@@ -263,8 +295,21 @@ export async function searchLibrary(
     }
     if (filters.tag) params.tag = filters.tag
     if (filters.year) params.year = String(filters.year)
-    const dtos = (await fetchAllPages(server, path, params, fetchImpl)).items
-    results.push(...dtos.map((d) => mapMetadataToMediaItem(d, sectionKey)))
+    try {
+      const dtos = (await fetchAllPages(server, path, params, fetchImpl)).items.filter(isMediaDto)
+      results.push(...dtos.map((d) => mapMetadataToMediaItem(d, sectionKey)))
+    } catch (e) {
+      console.warn(`Search for type ${type} failed`, e)
+    }
+  }
+  if (results.length === 0 && filters.query) {
+    // Title filter on the flat listing works on servers where the search endpoint does not.
+    try {
+      const byTitle = (await fetchAllPages(server, `/library/sections/${sectionKey}/all`, { clusterZoomLevel: '1', title: filters.query }, fetchImpl)).items.filter(isMediaDto)
+      results.push(...byTitle.map((d) => mapMetadataToMediaItem(d, sectionKey)))
+    } catch (e) {
+      console.warn('Title filter search failed', e)
+    }
   }
   return dedupeById(mergeTimeline(results, []))
 }

@@ -259,3 +259,34 @@ Sign out: `DELETE https://plex.tv/api/v2/users/signout` with the account token (
 - 401: token invalid or expired. Clear the session and return to sign in.
 - 403 on delete: media deletion disabled on the server.
 - Connection failures: re-run the connection chooser once, then surface the error.
+
+## Verified against a real server (Plex Media Server 1.43.4, 30/09/2026)
+
+These findings override the sections above where they differ. Both clients implement them.
+
+- `all?type=13` and `all?type=12` return NOTHING on 1.43 (size 0), sorted or not, paged or not.
+- The flat timeline is `all?clusterZoomLevel=1` (no type). It returns photos and videos together,
+  supports `sort=originallyAvailableAt:desc` and the `X-Plex-Container-Start/Size` headers,
+  and reports `totalSize`. `type=13&clusterZoomLevel=1` gives photos only, `type=12` videos only.
+- Albums: `all?type=14` lists albums (paged, `totalSize`). They come back with `type: "photo"`,
+  a `key` ending in `/children`, no `Media`, and a `composite` image. Treat any entry whose key
+  ends in `/children` as an album regardless of its `type`. `leafCount` is absent.
+- The plain `all` (no params) returns only the root level (albums, and any loose items).
+- `/library/metadata/{albumId}/children` returns the album's photos (`type: "photo"`), videos
+  (`type: "clip"`) and nested albums (key ends in `/children`).
+- Favourites: `all?clusterZoomLevel=1&userRating>=10` with NO type filter. The `>=` must be sent
+  raw; `userRating%3E%3D10` is a 400 Bad Request.
+- Search: `search?type=13&query=...` works; `search?query=...` without a type is a 400.
+  `all?clusterZoomLevel=1&title=IMG` filters by title substring and works as a fallback.
+- Hubs: `/hubs/sections/{key}` returns Recently Added, Recently Favorited and year hubs.
+- Filters available for `type=13`: year, make, model, aperture, exposure, iso, lens, tag, trash, location, place.
+- Photo playlists (the user-editable albums Plex apps show):
+  - list: `GET /playlists?playlistType=photo` (a smart "Favorites" playlist exists by default)
+  - items: `GET /playlists/{id}/items` (each item has `playlistItemID`)
+  - create: `POST /playlists?type=photo&smart=0&title={t}&uri={uri}` where
+    `uri = server://{machineIdentifier}/com.plexapp.plugins.library/library/metadata/{id1,id2}` (URL encoded)
+  - add items: `PUT /playlists/{id}/items?uri={uri}` (duplicates are accepted silently)
+  - remove item: `DELETE /playlists/{id}/items/{playlistItemID}`
+  - rename: `PUT /playlists/{id}?title={t}`
+  - delete: `DELETE /playlists/{id}` (204)
+  Folder albums (`type=14`) cannot be modified through the API.
