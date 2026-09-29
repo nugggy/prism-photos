@@ -63,6 +63,7 @@ fun UploadScreen(
     uris: List<String>,
     onDone: () -> Unit,
     onCancel: () -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val graph = PrismApp.graph
     val context = LocalContext.current
@@ -152,7 +153,7 @@ fun UploadScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                         )
-                        Button(onClick = onCancel) { Text("Go to Settings") }
+                        Button(onClick = { (onOpenSettings ?: onCancel)() }) { Text("Go to Settings") }
                     }
                 }
                 return@Column

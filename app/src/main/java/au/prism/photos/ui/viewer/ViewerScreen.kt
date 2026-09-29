@@ -102,6 +102,8 @@ fun ViewerScreen(
     var showShare by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showSyncedDelete by remember { mutableStateOf(false) }
+    var syncedDeleteKey by remember { mutableStateOf<String?>(null) }
     var showWallpaperSheet by remember { mutableStateOf(false) }
     var showAddToAlbum by remember { mutableStateOf(false) }
     var pendingDeleteItem by remember { mutableStateOf<MediaItem?>(null) }
@@ -216,7 +218,18 @@ fun ViewerScreen(
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                         }
                     } else null,
-                    onDelete = { showDeleteConfirm = true },
+                    onDelete = {
+                        // Device items that were synced to Plex get the "delete from Plex as well?" prompt.
+                        scope.launch {
+                            val key = if (currentItem.isLocal) vm.syncedPlexRatingKey(currentItem) else null
+                            if (key != null) {
+                                syncedDeleteKey = key
+                                showSyncedDelete = true
+                            } else {
+                                showDeleteConfirm = true
+                            }
+                        }
+                    },
                 )
             }
         },
@@ -329,6 +342,25 @@ fun ViewerScreen(
         DeleteConfirmDialog(
             onDismiss = { showDeleteConfirm = false },
             onConfirm = { showDeleteConfirm = false; performDelete(currentItem) },
+        )
+    }
+    if (showSyncedDelete) {
+        SyncedDeleteConfirmDialog(
+            onDismiss = { showSyncedDelete = false },
+            onDeleteFromBoth = {
+                showSyncedDelete = false
+                val key = syncedDeleteKey
+                if (key == null) {
+                    performDelete(currentItem)
+                } else {
+                    scope.launch {
+                        vm.deleteFromBoth(currentItem, key)
+                            .onSuccess { if (items.size <= 1) onClose() }
+                            .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't delete from Plex") }
+                    }
+                }
+            },
+            onPhoneOnly = { showSyncedDelete = false; performDelete(currentItem) },
         )
     }
     if (showWallpaperSheet) {

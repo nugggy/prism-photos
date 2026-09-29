@@ -175,6 +175,7 @@ fun PrismNavHost(
                     uris = uris,
                     onDone = { navController.popBackStack() },
                     onCancel = { navController.popBackStack() },
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
         }
