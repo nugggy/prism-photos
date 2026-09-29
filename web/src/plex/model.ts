@@ -47,6 +47,10 @@ export interface Album {
   addedAt: number
   sectionKey: string
   parentId: string | null
+  /** True for "My albums" (Plex photo playlists), as opposed to a folder album. */
+  isPlaylist?: boolean
+  /** True for a smart playlist, which cannot be edited through the API. */
+  readOnly?: boolean
 }
 
 export interface Library {

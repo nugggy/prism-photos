@@ -7,6 +7,7 @@ import { MediaGrid } from '../components/MediaGrid'
 import { SelectionBar } from '../components/SelectionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../components/ShareSheet'
+import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
 import { useLockStore } from '../state/lockStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { useViewerListStore } from '../state/viewerListStore'
@@ -29,6 +30,7 @@ export function Photos(): React.ReactElement {
   const [overrides, setOverrides] = useState<Record<string, Partial<MediaItem>>>({})
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showAddToAlbum, setShowAddToAlbum] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const visibleItems = useMemo(() => {
@@ -120,6 +122,7 @@ export function Photos(): React.ReactElement {
 
       <SelectionBar
         count={selection.selectedIds.size}
+        onAddToAlbum={() => setShowAddToAlbum(true)}
         onShare={() => setShowShare(true)}
         onDownload={handleDownload}
         onFavourite={() => void handleFavourite()}
@@ -127,6 +130,14 @@ export function Photos(): React.ReactElement {
         onDelete={() => setConfirmDelete(true)}
         onClear={selection.clear}
       />
+
+      {showAddToAlbum && (
+        <AddToAlbumDialog
+          itemIds={selectedItems.map((i) => i.id)}
+          onClose={() => setShowAddToAlbum(false)}
+          onAdded={() => selection.clear()}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

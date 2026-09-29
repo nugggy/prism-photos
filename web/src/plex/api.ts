@@ -394,3 +394,120 @@ export async function setAlbumCover(
 export async function deleteItem(server: ServerRef, ratingKey: string, fetchImpl: typeof fetch = fetch): Promise<void> {
   await plexFetch(server, `/library/metadata/${ratingKey}`, { method: 'DELETE' }, fetchImpl)
 }
+
+// -----------------------------------------------------------------------------------
+// "My albums": Plex photo playlists. Unlike folder albums (type=14) these are fully
+// editable through the API and show up in every other Plex app too. See
+// docs/plex-api.md "Verified against a real server" for the endpoints.
+// -----------------------------------------------------------------------------------
+
+function mapMetadataToPlaylistAlbum(dto: PlexMetadataDto): Album {
+  return {
+    id: dto.ratingKey,
+    title: dto.title,
+    summary: dto.summary ?? '',
+    thumbPath: dto.composite ?? dto.thumb ?? '',
+    itemCount: dto.leafCount ?? 0,
+    addedAt: (dto.addedAt ?? 0) * 1000,
+    sectionKey: '',
+    parentId: null,
+    isPlaylist: true,
+    readOnly: dto.smart === true,
+  }
+}
+
+/** Every "My album" (photo playlist), including the default smart Favorites playlist. */
+export async function fetchMyAlbums(server: ServerRef, fetchImpl: typeof fetch = fetch): Promise<Album[]> {
+  const dto = await plexFetch<PlexMediaContainerDto>(server, '/playlists?playlistType=photo', {}, fetchImpl)
+  return (dto.MediaContainer.Metadata ?? []).map(mapMetadataToPlaylistAlbum)
+}
+
+export interface MyAlbumItem extends MediaItem {
+  /** The playlist-scoped item id, needed to remove this item from the playlist. */
+  playlistItemID: number
+}
+
+/** The items in a "My album", in playlist order. */
+export async function fetchMyAlbumItems(
+  server: ServerRef,
+  sectionKey: string,
+  playlistId: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<MyAlbumItem[]> {
+  const dto = await plexFetch<PlexMediaContainerDto>(server, `/playlists/${playlistId}/items`, {}, fetchImpl)
+  return (dto.MediaContainer.Metadata ?? []).map((m) => ({
+    ...mapMetadataToMediaItem(m, sectionKey),
+    playlistItemID: m.playlistItemID ?? 0,
+  }))
+}
+
+/** Builds the `server://` URI Plex expects to identify one or more library items when creating or adding to a playlist. */
+export function buildPlaylistUri(machineIdentifier: string, itemIds: string[]): string {
+  return `server://${machineIdentifier}/com.plexapp.plugins.library/library/metadata/${itemIds.join(',')}`
+}
+
+/** Creates a new "My album", optionally containing the given items (an empty array creates an empty album). */
+export async function createMyAlbum(
+  server: ServerRef,
+  machineIdentifier: string,
+  title: string,
+  itemIds: string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<Album> {
+  const params = new URLSearchParams({ type: 'photo', smart: '0', title })
+  if (itemIds.length > 0) params.set('uri', buildPlaylistUri(machineIdentifier, itemIds))
+  const dto = await plexFetch<PlexMediaContainerDto>(server, `/playlists?${params.toString()}`, { method: 'POST' }, fetchImpl)
+  const meta = dto.MediaContainer.Metadata?.[0]
+  if (!meta) throw new PlexApiError('The album was not created.')
+  return mapMetadataToPlaylistAlbum(meta)
+}
+
+/** Adds items to an existing "My album". Plex silently ignores items already in it. */
+export async function addToMyAlbum(
+  server: ServerRef,
+  machineIdentifier: string,
+  playlistId: string,
+  itemIds: string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const params = new URLSearchParams({ uri: buildPlaylistUri(machineIdentifier, itemIds) })
+  await plexFetch(server, `/playlists/${playlistId}/items?${params.toString()}`, { method: 'PUT' }, fetchImpl)
+}
+
+/** Maps the rating keys to remove to the playlist-scoped item ids Plex's remove endpoint needs. */
+export function mapRatingKeysToPlaylistItemIds(items: PlexMetadataDto[], ratingKeys: string[]): number[] {
+  const wanted = new Set(ratingKeys)
+  return items
+    .filter((m): m is PlexMetadataDto & { playlistItemID: number } => wanted.has(m.ratingKey) && m.playlistItemID !== undefined)
+    .map((m) => m.playlistItemID)
+}
+
+/** Removes items from a "My album" by rating key (fetches current items to resolve playlistItemID). */
+export async function removeFromMyAlbum(
+  server: ServerRef,
+  playlistId: string,
+  itemIds: string[],
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const dto = await plexFetch<PlexMediaContainerDto>(server, `/playlists/${playlistId}/items`, {}, fetchImpl)
+  const playlistItemIds = mapRatingKeysToPlaylistItemIds(dto.MediaContainer.Metadata ?? [], itemIds)
+  await Promise.all(
+    playlistItemIds.map((playlistItemID) =>
+      plexFetch(server, `/playlists/${playlistId}/items/${playlistItemID}`, { method: 'DELETE' }, fetchImpl),
+    ),
+  )
+}
+
+export async function renameMyAlbum(
+  server: ServerRef,
+  playlistId: string,
+  title: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const params = new URLSearchParams({ title })
+  await plexFetch(server, `/playlists/${playlistId}?${params.toString()}`, { method: 'PUT' }, fetchImpl)
+}
+
+export async function deleteMyAlbum(server: ServerRef, playlistId: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  await plexFetch(server, `/playlists/${playlistId}`, { method: 'DELETE' }, fetchImpl)
+}

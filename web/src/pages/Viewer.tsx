@@ -13,6 +13,7 @@ import { VideoPlayer } from '../components/VideoPlayer'
 import { InfoPanel } from '../components/InfoPanel'
 import { ShareSheet } from '../components/ShareSheet'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
 import { Icon } from '../components/Icon'
 import { downloadUrl } from '../lib/download'
 
@@ -34,6 +35,7 @@ export function Viewer(): React.ReactElement {
   const [showInfo, setShowInfo] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showAddToAlbum, setShowAddToAlbum] = useState(false)
   const [slideshowOn, setSlideshowOn] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
@@ -170,6 +172,9 @@ export function Viewer(): React.ReactElement {
           <button className="btn" onClick={() => downloadUrl(buildDownloadUrl(server, item.partKey), item.title)} aria-label="Download">
             <Icon name="download" size={18} />
           </button>
+          <button className="btn" onClick={() => setShowAddToAlbum(true)} aria-label="Add to album">
+            <Icon name="plus" size={18} /> Add to album
+          </button>
           {item.albumId && (
             <button className="btn" onClick={() => void handleSetAsCover()} aria-label="Set as album cover">
               Cover
@@ -235,6 +240,7 @@ export function Viewer(): React.ReactElement {
       {confirmDelete && (
         <ConfirmDialog title="Delete item" message="This deletes the item from Plex permanently. This cannot be undone." confirmLabel="Delete" danger onConfirm={() => void handleDelete()} onCancel={() => setConfirmDelete(false)} />
       )}
+      {showAddToAlbum && <AddToAlbumDialog itemIds={[item.id]} onClose={() => setShowAddToAlbum(false)} />}
     </div>
   )
 }
