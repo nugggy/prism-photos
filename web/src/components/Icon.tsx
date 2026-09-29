@@ -31,6 +31,8 @@ const PATHS: Record<string, string> = {
   undo: 'M9 14l-4-4 4-4M5 10h9a5 5 0 015 5v1',
   fingerprint: 'M12 2a5 5 0 015 5v2M7 7V5a5 5 0 019.9-1M4 9v2a8 8 0 0016 0V9M8 21a12 12 0 010-14M16 21a12 12 0 000-14M12 12v4',
   cameraStop: 'M4 6h4l1-2h6l1 2h4v13H4z',
+  plus: 'M12 5v14M5 12h14',
+  more: 'M12 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm0 7.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 21a1.5 1.5 0 110-3 1.5 1.5 0 010 3z',
 }
 
 export interface IconProps {

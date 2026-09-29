@@ -6,6 +6,7 @@ import { ServerPicker } from './pages/ServerPicker'
 import { Photos } from './pages/Photos'
 import { Albums } from './pages/Albums'
 import { AlbumDetail } from './pages/AlbumDetail'
+import { MyAlbumDetail } from './pages/MyAlbumDetail'
 import { Favourites } from './pages/Favourites'
 import { Search } from './pages/Search'
 import { Locked } from './pages/Locked'
@@ -28,6 +29,7 @@ export const router = createHashRouter([
               { path: '/photos', element: <Photos /> },
               { path: '/albums', element: <Albums /> },
               { path: '/albums/:albumId', element: <AlbumDetail /> },
+              { path: '/my-albums/:id', element: <MyAlbumDetail /> },
               { path: '/favourites', element: <Favourites /> },
               { path: '/search', element: <Search /> },
               { path: '/locked', element: <Locked /> },

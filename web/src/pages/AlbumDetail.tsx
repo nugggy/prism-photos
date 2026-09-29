@@ -7,12 +7,17 @@ import { useAlbumPrefsStore, type AlbumSortOrder } from '../state/albumPrefsStor
 import { useSettingsStore } from '../state/settingsStore'
 import { useSelection } from '../lib/useSelection'
 import { useViewerListStore } from '../state/viewerListStore'
-import { fetchAlbumChildren, fetchAlbumMeta, editMetadata } from '../plex/api'
-import { buildThumbUrl } from '../plex/urls'
+import { fetchAlbumChildren, fetchAlbumMeta, editMetadata, deleteItem, rateItem } from '../plex/api'
+import { buildDownloadUrl, buildThumbUrl } from '../plex/urls'
 import type { Album, MediaItem } from '../plex/model'
 import { filterLocked } from '../plex/timeline'
 import { getCachedAlbumChildren, setCachedAlbumChildren } from '../lib/cache'
 import { MediaGrid } from '../components/MediaGrid'
+import { SelectionBar } from '../components/SelectionBar'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ShareSheet } from '../components/ShareSheet'
+import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
+import { downloadUrl } from '../lib/download'
 import { Icon } from '../components/Icon'
 
 const ACCENTS = ['#e5a00d', '#3dd68c', '#5ab4ff', '#ff6b6b', '#b78cff', '#ff9f43']
@@ -24,6 +29,7 @@ export function AlbumDetail(): React.ReactElement {
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
   const lockedItemIds = useLockStore((s) => s.lockedItemIds)
   const lockedAlbumIds = useLockStore((s) => s.lockedAlbumIds)
+  const lockItem = useLockStore((s) => s.lockItem)
   const lockAlbum = useLockStore((s) => s.lockAlbum)
   const unlockAlbum = useLockStore((s) => s.unlockAlbum)
   const isAlbumLocked = useLockStore((s) => s.isAlbumLocked)
@@ -41,6 +47,11 @@ export function AlbumDetail(): React.ReactElement {
   const [title, setTitle] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [description, setDescription] = useState('')
+  const [itemOverrides, setItemOverrides] = useState<Record<string, Partial<MediaItem>>>({})
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [showAddToAlbum, setShowAddToAlbum] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!server || !sectionKey || !albumId) return
@@ -87,7 +98,7 @@ export function AlbumDetail(): React.ReactElement {
 
   const sortedItems = useMemo(() => {
     const order: AlbumSortOrder = prefs.sortOrder ?? 'newest'
-    const arr = [...items]
+    const arr = items.map((it) => (itemOverrides[it.id] ? { ...it, ...itemOverrides[it.id] } : it))
     switch (order) {
       case 'oldest':
         return arr.sort((a, b) => a.takenAt - b.takenAt)
@@ -99,7 +110,7 @@ export function AlbumDetail(): React.ReactElement {
       default:
         return arr.sort((a, b) => b.takenAt - a.takenAt)
     }
-  }, [items, prefs.sortOrder])
+  }, [items, itemOverrides, prefs.sortOrder])
 
   const visibleItems = filterLocked(sortedItems, new Set(lockedItemIds))
   const visibleAlbums = albums.filter((a) => !lockedAlbumIds.includes(a.id))
@@ -123,6 +134,46 @@ export function AlbumDetail(): React.ReactElement {
 
   const handleDescription = async () => {
     await editMetadata(server, { sectionKey, ratingKey: albumId, type: '14', summary: description })
+  }
+
+  const selectedItems = visibleItems.filter((i) => selection.selectedIds.has(i.id))
+
+  const handleFavourite = async () => {
+    setBusy(true)
+    const makeFav = !selectedItems.every((i) => i.favourite)
+    try {
+      await Promise.all(selectedItems.map((i) => rateItem(server, i.id, makeFav)))
+      setItemOverrides((prev) => {
+        const next = { ...prev }
+        selectedItems.forEach((i) => (next[i.id] = { ...next[i.id], favourite: makeFav }))
+        return next
+      })
+    } finally {
+      setBusy(false)
+      selection.clear()
+    }
+  }
+
+  const handleLock = () => {
+    selectedItems.forEach((i) => lockItem(i.id))
+    selection.clear()
+  }
+
+  const handleDownload = () => {
+    selectedItems.forEach((i) => downloadUrl(buildDownloadUrl(server, i.partKey), i.title))
+    selection.clear()
+  }
+
+  const handleDeleteSelected = async () => {
+    setBusy(true)
+    try {
+      await Promise.all(selectedItems.map((i) => deleteItem(server, i.id)))
+      setItems((prev) => prev.filter((i) => !selection.selectedIds.has(i.id)))
+    } finally {
+      setBusy(false)
+      setConfirmDelete(false)
+      selection.clear()
+    }
   }
 
   return (
@@ -194,6 +245,46 @@ export function AlbumDetail(): React.ReactElement {
         />
       )}
       {!loading && visibleAlbums.length === 0 && visibleItems.length === 0 && <p className="muted">This album is empty.</p>}
+
+      <SelectionBar
+        count={selection.selectedIds.size}
+        onAddToAlbum={() => setShowAddToAlbum(true)}
+        onShare={() => setShowShare(true)}
+        onDownload={handleDownload}
+        onFavourite={() => void handleFavourite()}
+        onLock={handleLock}
+        onDelete={() => setConfirmDelete(true)}
+        onClear={selection.clear}
+      />
+
+      {showAddToAlbum && (
+        <AddToAlbumDialog
+          itemIds={selectedItems.map((i) => i.id)}
+          onClose={() => setShowAddToAlbum(false)}
+          onAdded={() => selection.clear()}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete selected"
+          message={`This deletes ${selectedItems.length} item(s) from Plex permanently. This cannot be undone.`}
+          confirmLabel={busy ? 'Deleting' : 'Delete'}
+          danger
+          onConfirm={() => void handleDeleteSelected()}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {showShare && selectedItems.length === 1 && (
+        <ShareSheet
+          title={selectedItems[0].title}
+          link={`${window.location.origin}${window.location.pathname}#/view/album-${albumId}/0`}
+          fileUrl={buildDownloadUrl(server, selectedItems[0].partKey)}
+          fileName={selectedItems[0].title}
+          onClose={() => setShowShare(false)}
+        />
+      )}
     </div>
   )
 }

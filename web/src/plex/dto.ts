@@ -126,6 +126,10 @@ export interface PlexMetadataDto {
   Tag?: PlexTagDto[]
   Country?: PlexTagDto[]
   Place?: PlexTagDto[]
+  // Photo playlists ("My albums").
+  smart?: boolean
+  playlistType?: string
+  playlistItemID?: number
 }
 
 export interface PlexMediaContainerDto {
