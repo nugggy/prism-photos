@@ -167,7 +167,7 @@ fun ViewerBottomBar(
         }
         if (onEdit != null) {
             IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = Color.White)
+                Icon(Icons.Filled.Edit, contentDescription = if (item.isVideo) "Edit video" else "Edit", tint = Color.White)
             }
         }
         IconButton(onClick = onDownload) {

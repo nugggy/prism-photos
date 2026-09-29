@@ -65,6 +65,7 @@ fun ViewerScreen(
     startIndex: Int,
     onClose: () -> Unit,
     onEdit: (itemId: String) -> Unit,
+    onEditVideo: ((itemId: String) -> Unit)? = null,
 ) {
     val vm: ViewerViewModel = viewModel(factory = ViewerViewModel.Factory(source))
     val items by vm.items.collectAsStateWithLifecycle()
@@ -225,9 +226,10 @@ fun ViewerScreen(
                     item = currentItem,
                     onShare = { showShare = true },
                     onFavourite = { vm.toggleFavourite(currentItem) },
-                    onEdit = if (!currentItem.isVideo) {
-                        { onEdit(if (currentItem.isLocal) currentItem.localUri ?: currentItem.id else currentItem.id) }
-                    } else null,
+                    onEdit = {
+                        val idOrUri = if (currentItem.isLocal) currentItem.localUri ?: currentItem.id else currentItem.id
+                        if (currentItem.isVideo) (onEditVideo ?: onEdit)(idOrUri) else onEdit(idOrUri)
+                    },
                     onDownload = {
                         scope.launch {
                             MediaActions.download(context, listOf(currentItem))

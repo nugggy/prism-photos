@@ -140,6 +140,7 @@ fun PrismNavHost(
                     startIndex = index,
                     onClose = { navController.popBackStack() },
                     onEdit = { itemId -> navController.navigate(Routes.editor(itemId)) },
+                    onEditVideo = { itemId -> navController.navigate(Routes.videoEditor(itemId)) },
                 )
             }
             composable(
