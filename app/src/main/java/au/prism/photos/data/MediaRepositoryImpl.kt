@@ -83,13 +83,37 @@ class MediaRepositoryImpl(
 
     private var transcodeSessionId: String? = null
 
+    /** Locked items that are not part of the loaded timeline, fetched by id so the Locked tab always shows them. */
+    private val extraLocked = MutableStateFlow<Map<String, MediaItem>>(emptyMap())
+    private val extraLockedInFlight = java.util.Collections.synchronizedSet(HashSet<String>())
+
     init {
-        combine(allItems, local.lockedItemIds, local.lockedAlbumIds) { all, lockedIds, lockedAlbums ->
-            Triple(all, lockedIds, lockedAlbums)
-        }.onEach { (all, lockedIds, lockedAlbums) ->
+        combine(allItems, local.lockedItemIds, local.lockedAlbumIds, extraLocked) { all, lockedIds, lockedAlbums, extras ->
+            listOf(all, lockedIds, lockedAlbums, extras)
+        }.onEach { parts ->
+            @Suppress("UNCHECKED_CAST")
+            val all = parts[0] as List<MediaItem>
+            @Suppress("UNCHECKED_CAST")
+            val lockedIds = parts[1] as Set<String>
+            @Suppress("UNCHECKED_CAST")
+            val lockedAlbums = parts[2] as Set<String>
+            @Suppress("UNCHECKED_CAST")
+            val extras = parts[3] as Map<String, MediaItem>
             fun isLocked(item: MediaItem) = item.id in lockedIds || (item.albumId != null && item.albumId in lockedAlbums)
             visibleFlow.value = all.filterNot { isLocked(it) }
-            lockedFlow.value = all.filter { isLocked(it) }
+            val known = all.filter { isLocked(it) }
+            val knownIds = known.map { it.id }.toSet()
+            val missing = lockedIds.filter { it !in knownIds }
+            lockedFlow.value = (known + missing.mapNotNull { extras[it] }).sortedByDescending { it.takenAt }
+            // Fetch locked items the timeline does not contain (for example when the timeline is empty).
+            val toFetch = missing.filter { it !in extras && extraLockedInFlight.add(it) }
+            if (toFetch.isNotEmpty()) scope.launch {
+                toFetch.forEach { id ->
+                    val fetched = attempt { item(id) }.getOrNull()
+                    if (fetched != null) extraLocked.update { it + (id to fetched) }
+                    extraLockedInFlight.remove(id)
+                }
+            }
         }.launchIn(scope)
 
         session.session
