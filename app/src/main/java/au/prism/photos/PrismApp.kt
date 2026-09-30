@@ -13,6 +13,7 @@ class PrismApp : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        au.prism.photos.data.CrashLog.install(this)
         graph = AppGraph(this)
     }
 

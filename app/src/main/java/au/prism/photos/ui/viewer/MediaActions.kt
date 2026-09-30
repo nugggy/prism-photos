@@ -17,6 +17,7 @@ import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
+import coil3.size.Precision
 import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -126,10 +127,12 @@ object MediaActions {
             MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
         }
     } else {
-        val loader = ImageLoader(context)
+        val loader = PrismApp.graph.imageLoader
         val request = ImageRequest.Builder(context)
             .data(PrismApp.graph.media.originalUrl(item))
             .allowHardware(false)
+            .size(4096, 4096)
+            .precision(Precision.INEXACT)
             .build()
         val result = loader.execute(request)
         if (result is SuccessResult) {

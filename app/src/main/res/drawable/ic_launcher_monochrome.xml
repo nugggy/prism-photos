@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed icon layer: a single colour silhouette with the lens and chevron cut out, so
+     launchers that tint the icon still show a recognisable camera. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M31,38 L44,38 L48,30 L64,30 L68,38 L77,38 C81.4,38 85,41.6 85,46 L85,72 C85,76.4 81.4,80 77,80 L31,80 C26.6,80 23,76.4 23,72 L23,46 C23,41.6 26.6,38 31,38 Z M54,59 m-16,0 a16,16 0,1 1,32 0 a16,16 0,1 1,-32 0 Z M74,44 m-2.5,0 a2.5,2.5 0,1 1,5 0 a2.5,2.5 0,1 1,-5 0 Z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M48.5,50 L53.5,50 L59.5,59 L53.5,68 L48.5,68 L54.5,59 Z"/>
+</vector>

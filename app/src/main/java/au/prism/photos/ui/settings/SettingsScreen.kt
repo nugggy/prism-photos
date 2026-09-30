@@ -356,6 +356,25 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
                 }
             }
         }
+        val lastCrash = remember { au.prism.photos.data.CrashLog.read(context) }
+        if (lastCrash != null) {
+            Spacer(Modifier.height(8.dp))
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("The app crashed last time. Copy this and send it along.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.height(4.dp))
+                    Text(lastCrash.lineSequence().take(12).joinToString(separator = System.lineSeparator()), style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+                            clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Crash", lastCrash))
+                        }) { Text("Copy crash report") }
+                        OutlinedButton(onClick = { au.prism.photos.data.CrashLog.clear(context) }) { Text("Dismiss") }
+                    }
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onReload) { Text("Reload library") }

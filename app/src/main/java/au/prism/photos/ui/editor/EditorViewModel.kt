@@ -23,6 +23,7 @@ import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
+import coil3.size.Precision
 import coil3.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -181,10 +182,14 @@ class EditorViewModel(private val itemId: String) : ViewModel() {
 
     private suspend fun decodeFromPlex(id: String): Bitmap {
         val item = graph.media.item(id) ?: throw IOException("Item not found")
-        val loader = ImageLoader(PrismApp.instance)
+        // Decode straight to the working size: a 50 MP original would otherwise become a 200 MB
+        // software bitmap and crash the app on the phone.
+        val loader = graph.imageLoader
         val request = ImageRequest.Builder(PrismApp.instance)
             .data(graph.media.originalUrl(item))
             .allowHardware(false)
+            .size(MAX_EDGE, MAX_EDGE)
+            .precision(Precision.INEXACT)
             .build()
         val result = loader.execute(request)
         if (result !is SuccessResult) throw IOException("Couldn't download the image")
