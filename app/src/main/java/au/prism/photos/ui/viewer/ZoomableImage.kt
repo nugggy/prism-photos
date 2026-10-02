@@ -19,7 +19,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import coil3.compose.AsyncImage
-import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 
@@ -54,13 +53,9 @@ fun ZoomableImage(
         )
     }
 
-    val placeholderPainter = if (placeholderModel != null) {
-        rememberAsyncImagePainter(
-            model = ImageRequest.Builder(context).data(placeholderModel).crossfade(false).build(),
-        )
-    } else {
-        null
-    }
+    // The preview sits underneath the original until the original has drawn, so a slow or
+    // failed original load still leaves the preview on screen instead of a blank page.
+    var originalLoaded by remember(model) { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -98,19 +93,28 @@ fun ZoomableImage(
                 }
             },
     ) {
+        val transformed = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                translationX = offset.x
+                translationY = offset.y
+            }
+        if (placeholderModel != null && !originalLoaded) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(placeholderModel).crossfade(false).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = transformed,
+            )
+        }
         AsyncImage(
-            model = ImageRequest.Builder(context).data(model).crossfade(true).build(),
-            placeholder = placeholderPainter,
+            model = ImageRequest.Builder(context).data(model).crossfade(false).build(),
             contentDescription = contentDescription,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationX = offset.x
-                    translationY = offset.y
-                },
+            onSuccess = { originalLoaded = true },
+            modifier = transformed,
         )
     }
 }

@@ -3,6 +3,7 @@ package au.prism.photos.data
 import android.app.Application
 import au.prism.photos.BuildConfig
 import au.prism.photos.data.plex.DynamicBaseUrlInterceptor
+import au.prism.photos.data.plex.PartRetryInterceptor
 import au.prism.photos.data.plex.PlexHeaders
 import au.prism.photos.data.plex.PlexServerApi
 import au.prism.photos.data.plex.PlexTvApi
@@ -79,6 +80,7 @@ class AppGraph(val app: Application) {
     private val plexServerHttpClient: OkHttpClient = baseClientBuilder()
         .addInterceptor(DynamicBaseUrlInterceptor { session.session.value.active?.uri })
         .addInterceptor(plexHeaders)
+        .addInterceptor(PartRetryInterceptor())
         .build()
 
     private val converterFactory = json.asConverterFactory("application/json".toMediaType())
