@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older (android:fullBackupContent). Keep in step with data_extraction_rules.xml.
+     The session (Plex tokens) and upload settings (SMB/WebDAV passwords) are encrypted with a
+     Keystore key that is never backed up, so restoring them elsewhere would be useless anyway;
+     they are excluded outright. The timeline cache is rebuilt from the server. -->
+<full-backup-content>
+    <exclude domain="file" path="datastore/prism_session.preferences_pb" />
+    <exclude domain="file" path="datastore/prism_upload_settings.preferences_pb" />
+    <exclude domain="file" path="cache/" />
+</full-backup-content>

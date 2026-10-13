@@ -240,6 +240,8 @@ data class GithubAssetDto(
     val name: String = "",
     @SerialName("browser_download_url") val browserDownloadUrl: String = "",
     @Serializable(with = FlexibleLongSerializer::class) val size: Long = 0L,
+    /** "sha256:<hex>" on assets uploaded since GitHub started recording digests; absent on older ones. */
+    val digest: String? = null,
 )
 
 @Serializable

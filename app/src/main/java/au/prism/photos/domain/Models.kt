@@ -189,6 +189,8 @@ data class UpdateInfo(
     val apkSize: Long,
     val publishedAt: String,
     val htmlUrl: String,
+    /** Lower case hex SHA-256 of the APK from the GitHub asset's digest field, when GitHub supplies one. */
+    val apkSha256: String? = null,
 )
 
 sealed class DownloadProgress {

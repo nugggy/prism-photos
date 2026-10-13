@@ -18,6 +18,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import au.prism.photos.PrismApp
 import au.prism.photos.data.Diagnostics
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 private const val NOTIFICATION_CHANNEL_ID = "sync"
@@ -35,13 +36,13 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         if (!settings.autoSyncEnabled || settings.selectedBuckets.isEmpty()) return Result.success()
         if (!graph.device.hasPermission()) return Result.failure()
 
-        setForeground(foregroundInfo(0, 0, ""))
+        var foregroundAllowed = tryForeground(foregroundInfo(0, 0, ""))
 
-        val lastSync = settings.lastSyncAt
-        val candidates = settings.selectedBuckets.flatMap { bucketId ->
-            graph.device.items(bucketId).filter { it.takenAt > lastSync }
-        }.distinctBy { it.localUri ?: it.id }
-            .filterNot { graph.syncLedger.isUploaded(it) }
+        // No date cutoff: the ledger alone decides what is already synced, so items that failed
+        // last time or carry an EXIF date older than the previous run are still picked up.
+        // lastSyncAt is only a "last ran" stat for Settings.
+        val deviceItems = settings.selectedBuckets.flatMap { bucketId -> graph.device.items(bucketId) }
+        val candidates = LedgerMatching.selectSyncCandidates(deviceItems, graph.syncLedger.index())
 
         val startedAt = System.currentTimeMillis()
         if (candidates.isEmpty()) {
@@ -54,9 +55,9 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         var lastNotify = 0L
         val report = graph.uploadService.uploadItems(uris, folder = null) { done, total, name, fraction ->
             val now = System.currentTimeMillis()
-            if (now - lastNotify > 500 || done == total) {
+            if (foregroundAllowed && (now - lastNotify > 500 || done == total)) {
                 lastNotify = now
-                setForegroundAsync(foregroundInfo(done, total, name, fraction))
+                foregroundAllowed = tryForegroundAsync(foregroundInfo(done, total, name, fraction))
             }
         }
 
@@ -65,6 +66,30 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
         Diagnostics.log("Sync finished: ${report.uploaded} uploaded, ${report.skipped} already synced, ${report.failed} failed")
         return if (report.failed > 0 && report.uploaded == 0) Result.retry() else Result.success()
+    }
+
+    /**
+     * Android 12 and later refuse to start a foreground service from the background in many
+     * situations (ForegroundServiceStartNotAllowedException), which a periodic worker often is.
+     * The sync still works without the notification, it is just more likely to be stopped early.
+     */
+    private suspend fun tryForeground(info: ForegroundInfo): Boolean = try {
+        setForeground(info)
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Diagnostics.log("Sync: couldn't show the progress notification, carrying on without it (${e::class.java.simpleName})")
+        false
+    }
+
+    /** Returns false once the system has refused, so the caller stops asking for every progress tick. */
+    private fun tryForegroundAsync(info: ForegroundInfo): Boolean = try {
+        setForegroundAsync(info)
+        true
+    } catch (e: Exception) {
+        Diagnostics.log("Sync: progress notification refused (${e::class.java.simpleName})")
+        false
     }
 
     private fun foregroundInfo(done: Int, total: Int, name: String, fraction: Float = 0f): ForegroundInfo {
