@@ -2,10 +2,16 @@ package au.prism.photos.ui.lock
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,76 +36,146 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.findActivity
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Shows a locked screen and prompts BiometricPrompt (fingerprint, face or device credential).
- * Once unlocked for this app session, renders [content]. Re-locks after the hosting activity
- * has been backgrounded for more than a minute (there is no lifecycle-process dependency in
- * this project, so the activity lifecycle stands in for the process lifecycle; fine for this
- * single-activity app).
+ * Once unlocked for this app session, renders [content] with the window marked secure (no
+ * screenshots, blank recents thumbnail). If [LockSession] relocks while [content] is showing
+ * (the app was in the background too long), the lock screen replaces it straight away.
  */
 @Composable
 fun LockGate(content: @Composable () -> Unit) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var unlocked by remember { mutableStateOf(LockSession.unlocked) }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_STOP -> LockSession.backgroundedAt = System.currentTimeMillis()
-                Lifecycle.Event.ON_START -> {
-                    val since = LockSession.backgroundedAt
-                    if (since > 0 && System.currentTimeMillis() - since > LockSession.RELOCK_AFTER_MS) {
-                        LockSession.unlocked = false
-                        unlocked = false
-                    }
-                }
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
+    val unlocked by LockSession.unlocked.collectAsStateWithLifecycle()
     if (unlocked) {
+        SecureWindow()
         content()
     } else {
-        LockScreen(onUnlocked = {
-            LockSession.unlocked = true
-            unlocked = true
-        })
+        LockScreen(onUnlocked = { LockSession.unlock() })
     }
 }
 
-/** App session unlock state shared by LockGate and anything else that needs it. */
+/**
+ * App session unlock state shared by every [LockGate]. MainActivity reports when the app goes to
+ * and comes back from the background (there is no lifecycle-process dependency; this is a single
+ * activity app so the activity lifecycle stands in for the process). The session relocks after
+ * [RELOCK_AFTER_MS] in the background, whichever screen was showing at the time. Process death
+ * relocks too, as the state lives only in memory.
+ */
 object LockSession {
-    @Volatile var unlocked: Boolean = false
-    @Volatile var backgroundedAt: Long = 0L
     const val RELOCK_AFTER_MS: Long = 60_000L
+
+    private val _unlocked = MutableStateFlow(false)
+    val unlocked: StateFlow<Boolean> = _unlocked.asStateFlow()
+
+    @Volatile private var backgroundedAt: Long = 0L
+
+    fun unlock() { _unlocked.value = true }
+
+    fun lock() { _unlocked.value = false }
+
+    fun onAppBackgrounded(nowMs: Long = System.currentTimeMillis()) {
+        backgroundedAt = nowMs
+    }
+
+    fun onAppForegrounded(nowMs: Long = System.currentTimeMillis()) {
+        val since = backgroundedAt
+        backgroundedAt = 0L
+        if (shouldRelock(since, nowMs)) lock()
+    }
+
+    /** True when the app has been in the background (since [backgroundedAtMs]) for longer than the timeout. */
+    fun shouldRelock(backgroundedAtMs: Long, nowMs: Long): Boolean =
+        backgroundedAtMs > 0 && nowMs - backgroundedAtMs > RELOCK_AFTER_MS
+}
+
+/**
+ * Marks the window FLAG_SECURE while composed, so locked content never shows in screenshots or the
+ * recents thumbnail. Reference counted: during a navigation transition two gated screens can be on
+ * screen at once, and the flag must stay until the last one leaves.
+ */
+@Composable
+fun SecureWindow() {
+    val activity = LocalContext.current.findActivity()
+    DisposableEffect(activity) {
+        if (activity != null) SecureWindowCounter.acquire(activity)
+        onDispose { if (activity != null) SecureWindowCounter.release(activity) }
+    }
+}
+
+private object SecureWindowCounter {
+    private var count = 0
+
+    fun acquire(activity: Activity) {
+        count++
+        if (count == 1) apply(activity, secure = true)
+    }
+
+    fun release(activity: Activity) {
+        count = (count - 1).coerceAtLeast(0)
+        if (count == 0) apply(activity, secure = false)
+    }
+
+    private fun apply(activity: Activity, secure: Boolean) {
+        if (secure) {
+            activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.setRecentsScreenshotEnabled(!secure)
+        }
+    }
+}
+
+private const val AUTHENTICATORS =
+    BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+/** True when the device has a screen lock or enrolled biometrics we can authenticate against. */
+private fun canUnlock(context: Context): Boolean {
+    if (BiometricManager.from(context).canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS) return true
+    return context.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
 }
 
 @Composable
 private fun LockScreen(onUnlocked: () -> Unit) {
     val context = LocalContext.current
     val activity = context.findActivity()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var available by remember { mutableStateOf(canUnlock(context)) }
+
+    // Re-check when returning, for example after setting up a screen lock in Settings.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) available = canUnlock(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val credentialLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) onUnlocked()
     }
 
+    val promptTitle = stringResource(R.string.lock_prompt_title)
+    val promptSubtitle = stringResource(R.string.lock_prompt_subtitle)
+    val credentialDescription = stringResource(R.string.lock_prompt_credential)
+
     fun startBiometric() {
-        val biometricManager = BiometricManager.from(context)
-        val canAuth = biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-        )
+        val canAuth = BiometricManager.from(context).canAuthenticate(AUTHENTICATORS)
         val fragmentActivity = activity as? FragmentActivity
         if (fragmentActivity != null && canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
             val executor = ContextCompat.getMainExecutor(context)
@@ -113,40 +189,50 @@ private fun LockScreen(onUnlocked: () -> Unit) {
                 },
             )
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock Plex Gallery")
-                .setSubtitle("Locked items")
-                .setAllowedAuthenticators(
-                    BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-                )
+                .setTitle(promptTitle)
+                .setSubtitle(promptSubtitle)
+                .setAllowedAuthenticators(AUTHENTICATORS)
                 .build()
             prompt.authenticate(promptInfo)
         } else {
             val keyguardManager = context.getSystemService(KeyguardManager::class.java)
             if (keyguardManager != null && keyguardManager.isDeviceSecure) {
-                val intent = keyguardManager.createConfirmDeviceCredentialIntent(
-                    "Unlock Plex Gallery",
-                    "Confirm your PIN, pattern or password",
-                )
-                if (intent != null) credentialLauncher.launch(intent)
+                val intent = keyguardManager.createConfirmDeviceCredentialIntent(promptTitle, credentialDescription)
+                if (intent != null) credentialLauncher.launch(intent) else available = false
+            } else {
+                available = false
             }
         }
     }
 
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Filled.Lock, contentDescription = null, tint = PlexGold, modifier = Modifier.size(64.dp))
             Spacer(Modifier.height(16.dp))
-            Text("Locked items", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Unlock with your fingerprint, face or device PIN",
+                stringResource(if (available) R.string.lock_subtitle else R.string.lock_no_screen_lock),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp),
             )
             Spacer(Modifier.height(24.dp))
-            Button(onClick = { startBiometric() }, colors = ButtonDefaults.buttonColors(containerColor = PlexGold)) {
-                Text("Unlock")
+            if (available) {
+                Button(onClick = { startBiometric() }, colors = ButtonDefaults.buttonColors(containerColor = PlexGold)) {
+                    Text(stringResource(R.string.lock_unlock))
+                }
+            } else {
+                Button(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PlexGold),
+                ) {
+                    Text(stringResource(R.string.lock_open_security_settings))
+                }
             }
         }
     }

@@ -6,17 +6,18 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.ui.components.PipState
+import au.prism.photos.ui.lock.LockSession
 import au.prism.photos.ui.nav.PrismNavHost
 import au.prism.photos.ui.theme.PrismTheme
 import kotlinx.coroutines.launch
@@ -25,8 +26,12 @@ import kotlinx.coroutines.launch
  * Single activity host. Handles sign in / library setup / the bottom nav shell through
  * PrismNavHost, plus intents from other apps: viewing shared or camera media, and acting
  * as a photo picker for other apps (ACTION_PICK / GET_CONTENT).
+ *
+ * A FragmentActivity (still a ComponentActivity) so BiometricPrompt can attach to it for the
+ * Locked tab. onStart/onStop feed [LockSession] so locked content relocks after time in the
+ * background no matter which screen was showing.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private var pendingViewUris by mutableStateOf<List<String>?>(null)
     private var pickMode by mutableStateOf(false)
@@ -52,6 +57,16 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        LockSession.onAppForegrounded()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) LockSession.onAppBackgrounded()
     }
 
     override fun onNewIntent(intent: Intent) {

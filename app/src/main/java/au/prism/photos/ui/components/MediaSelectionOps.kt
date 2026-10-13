@@ -1,24 +1,58 @@
 package au.prism.photos.ui.components
 
 import android.net.Uri
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import au.prism.photos.data.AppGraph
 import au.prism.photos.domain.MediaItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** A reversible bulk action: [undo] puts back exactly what the action changed. */
+class Undoable(val count: Int, val undo: suspend () -> Unit)
+
 /** Shared suspend operations used by the selection top bar across grids. */
 object MediaSelectionOps {
-    suspend fun toggleFavourite(graph: AppGraph, items: List<MediaItem>) {
-        val makeFavourite = items.any { !it.favourite }
-        items.forEach { graph.media.setFavourite(it.id, makeFavourite) }
+    /** True when [toggleFavourite] on [items] would favourite them (rather than unfavourite). */
+    fun willFavourite(items: List<MediaItem>): Boolean = items.any { !it.favourite }
+
+    suspend fun toggleFavourite(graph: AppGraph, items: List<MediaItem>): Undoable {
+        val makeFavourite = willFavourite(items)
+        val changed = items.filter { it.favourite != makeFavourite }
+        changed.forEach { graph.media.setFavourite(it.id, makeFavourite) }
+        return Undoable(items.size) { changed.forEach { graph.media.setFavourite(it.id, !makeFavourite) } }
     }
 
-    suspend fun lock(graph: AppGraph, ids: Collection<String>) {
+    suspend fun lock(graph: AppGraph, ids: Collection<String>): Undoable {
+        val newlyLocked = ids.toSet() - graph.local.lockedItemIds.value
         graph.local.setItemsLocked(ids, true)
+        return Undoable(ids.size) { graph.local.setItemsLocked(newlyLocked, false) }
     }
 
-    suspend fun unlock(graph: AppGraph, ids: Collection<String>) {
+    suspend fun unlock(graph: AppGraph, ids: Collection<String>): Undoable {
+        val wereLocked = ids.toSet().intersect(graph.local.lockedItemIds.value)
         graph.local.setItemsLocked(ids, false)
+        return Undoable(ids.size) { graph.local.setItemsLocked(wereLocked, true) }
+    }
+
+    /**
+     * Shows [message] with an Undo action and runs [Undoable.undo] if it is tapped, then [afterUndo]
+     * (for screens that reload their list). Bulk delete never goes through here: Plex deletes are
+     * permanent, so delete keeps its confirmation dialog instead.
+     */
+    suspend fun offerUndo(
+        snackbar: SnackbarHostState,
+        message: String,
+        undoLabel: String,
+        action: Undoable,
+        afterUndo: () -> Unit = {},
+    ) {
+        val result = snackbar.showSnackbar(message, actionLabel = undoLabel, duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) {
+            action.undo()
+            afterUndo()
+        }
     }
 
     /** Deletes each item, returning a human readable error per failure (empty list = all ok). */

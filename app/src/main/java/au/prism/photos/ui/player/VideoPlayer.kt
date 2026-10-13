@@ -61,7 +61,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +84,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import au.prism.photos.PrismApp
 import au.prism.photos.domain.MediaItem
+import au.prism.photos.ui.components.KeepScreenOn
 import au.prism.photos.ui.components.PipState
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.Format
@@ -186,7 +189,7 @@ fun VideoPlayer(
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
-    val view = LocalView.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val settings by PrismApp.graph.settings.settings.collectAsStateWithLifecycle()
 
     val controller = remember(item.id) {
@@ -260,9 +263,18 @@ fun VideoPlayer(
         }
     }
 
-    DisposableEffect(isPlaying) {
-        view.keepScreenOn = isPlaying
-        onDispose {}
+    KeepScreenOn(enabled = isPlaying)
+
+    // Pause when the app leaves the screen, unless the video carries on in picture in picture.
+    DisposableEffect(lifecycleOwner, controller) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && activity?.isInPictureInPictureMode != true) {
+                controller.exoPlayer.playWhenReady = false
+                onPositionChange(controller.exoPlayer.currentPosition.coerceAtLeast(0))
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     fun requestSkip(forwardMs: Long) {

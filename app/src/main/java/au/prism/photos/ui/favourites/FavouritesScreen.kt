@@ -1,5 +1,7 @@
 package au.prism.photos.ui.favourites
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -64,6 +66,9 @@ fun FavouritesScreen(
         }
     }
 
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState, onChanged = { load() })
+    SelectionBackHandler(selection)
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -89,10 +94,8 @@ fun FavouritesScreen(
                             snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                         }
                     },
-                    onToggleFavourite = {
-                        scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear(); load() }
-                    },
-                    onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
+                    onLock = { selectionActions.lock(selection.selected) },
                     onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )

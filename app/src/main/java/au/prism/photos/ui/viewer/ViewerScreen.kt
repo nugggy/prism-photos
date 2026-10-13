@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,17 +13,28 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,7 +43,13 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import au.prism.photos.R
+import au.prism.photos.ui.components.KeepScreenOn
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -70,6 +88,8 @@ fun ViewerScreen(
     val vm: ViewerViewModel = viewModel(factory = ViewerViewModel.Factory(source))
     val items by vm.items.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
+    val loadError by vm.loadError.collectAsStateWithLifecycle()
+    val error by vm.error.collectAsStateWithLifecycle()
     val settings by PrismApp.graph.settings.settings.collectAsStateWithLifecycle()
     val session by PrismApp.graph.session.session.collectAsStateWithLifecycle()
     val lockedIds by PrismApp.graph.local.lockedItemIds.collectAsStateWithLifecycle()
@@ -80,14 +100,33 @@ fun ViewerScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    if (loading && items.isEmpty()) {
-        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = PlexGold)
+    // Several paths can ask to close (back, drag down, the list emptying after a delete). Only the
+    // first one pops, so a double call can never pop the screen underneath as well.
+    val latestOnClose by rememberUpdatedState(onClose)
+    var closed by remember { mutableStateOf(false) }
+    val close: () -> Unit = remember {
+        {
+            if (!closed) {
+                closed = true
+                latestOnClose()
+            }
         }
-        return
     }
+
+    LaunchedEffect(error) {
+        val message = error ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        vm.clearError()
+    }
+
     if (items.isEmpty()) {
-        LaunchedEffect(Unit) { onClose() }
+        when {
+            loadError != null -> ViewerLoadError(message = loadError!!, onRetry = { vm.retry() }, onClose = close)
+            loading -> Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PlexGold)
+            }
+            else -> LaunchedEffect(Unit) { close() }
+        }
         return
     }
 
@@ -98,15 +137,19 @@ fun ViewerScreen(
     var slideshow by remember { mutableStateOf(false) }
     var slideshowProgress by remember { mutableFloatStateOf(0f) }
 
-    var showInfo by remember { mutableStateOf(false) }
-    var showShare by remember { mutableStateOf(false) }
-    var showRename by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showSyncedDelete by remember { mutableStateOf(false) }
+    // Each dialog and sheet captures the item it was opened for, so a slideshow advance or a list
+    // update while it is open cannot redirect the action to a different photo.
+    var infoItem by remember { mutableStateOf<MediaItem?>(null) }
+    var shareItem by remember { mutableStateOf<MediaItem?>(null) }
+    var renameItem by remember { mutableStateOf<MediaItem?>(null) }
+    var deleteItem by remember { mutableStateOf<MediaItem?>(null) }
+    var syncedDeleteItem by remember { mutableStateOf<MediaItem?>(null) }
     var syncedDeleteKey by remember { mutableStateOf<String?>(null) }
-    var showWallpaperSheet by remember { mutableStateOf(false) }
-    var showAddToAlbum by remember { mutableStateOf(false) }
+    var wallpaperItem by remember { mutableStateOf<MediaItem?>(null) }
+    var addToAlbumItem by remember { mutableStateOf<MediaItem?>(null) }
     var pendingDeleteItem by remember { mutableStateOf<MediaItem?>(null) }
+    val dialogOpen = infoItem != null || shareItem != null || renameItem != null || deleteItem != null ||
+        syncedDeleteItem != null || wallpaperItem != null || addToAlbumItem != null
 
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var dragging by remember { mutableStateOf(false) }
@@ -114,6 +157,9 @@ fun ViewerScreen(
     val currentIndex = pagerState.currentPage.coerceIn(0, items.size - 1)
     val currentItem = items[currentIndex]
     val isLocked = currentItem.id in lockedIds
+
+    /** Latest copy of a captured item (its summary or tags may have changed), or the capture if it has gone. */
+    fun fresh(item: MediaItem): MediaItem = items.firstOrNull { it.id == item.id } ?: item
 
     // System bars follow immersive mode; always restore them when the viewer closes.
     DisposableEffect(immersive, activity) {
@@ -133,9 +179,10 @@ fun ViewerScreen(
         }
     }
 
-    // Slideshow: auto advance every settings.slideshowIntervalSec, keep the screen on.
-    LaunchedEffect(slideshow, pagerState.currentPage, items.size, settings.slideshowIntervalSec) {
-        if (slideshow) {
+    // Slideshow: auto advance every settings.slideshowIntervalSec, keep the screen on. Paused while
+    // any dialog or sheet is open.
+    LaunchedEffect(slideshow, dialogOpen, pagerState.currentPage, items.size, settings.slideshowIntervalSec) {
+        if (slideshow && !dialogOpen) {
             slideshowProgress = 0f
             val intervalMs = (settings.slideshowIntervalSec.coerceAtLeast(1)) * 1000L
             val stepMs = 50L
@@ -152,18 +199,16 @@ fun ViewerScreen(
             }
         }
     }
-    DisposableEffect(slideshow) {
-        if (slideshow) view.keepScreenOn = true
-        onDispose { if (slideshow) view.keepScreenOn = false }
-    }
+    KeepScreenOn(enabled = slideshow)
 
+    // A successful delete removes the item from vm.items; when that empties the list the empty
+    // branch above closes the viewer (once), so the delete paths never call close themselves.
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         val item = pendingDeleteItem
         pendingDeleteItem = null
         if (result.resultCode == Activity.RESULT_OK && item != null) {
             scope.launch {
                 vm.delete(item)
-                    .onSuccess { if (items.size <= 1) onClose() }
                     .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't delete") }
             }
         }
@@ -172,7 +217,6 @@ fun ViewerScreen(
     fun performDelete(item: MediaItem) {
         scope.launch {
             vm.delete(item)
-                .onSuccess { if (items.size <= 1) onClose() }
                 .onFailure { e ->
                     val recoverable = e as? RecoverableSecurityException
                     if (recoverable != null) {
@@ -196,17 +240,17 @@ fun ViewerScreen(
                 ViewerTopBar(
                     item = currentItem,
                     isLocked = isLocked,
-                    onBack = onClose,
-                    onInfo = { showInfo = true },
-                    onRename = { showRename = true },
-                    onEditDescription = { showInfo = true },
-                    onTags = { showInfo = true },
+                    onBack = close,
+                    onInfo = { infoItem = currentItem },
+                    onRename = { renameItem = currentItem },
+                    onEditDescription = { infoItem = currentItem },
+                    onTags = { infoItem = currentItem },
                     onSetAlbumCover = {
                         vm.setAlbumCover(currentItem)
                         scope.launch { snackbarHostState.showSnackbar("Set as album cover") }
                     },
-                    onAddToAlbum = { showAddToAlbum = true },
-                    onWallpaper = { showWallpaperSheet = true },
+                    onAddToAlbum = { addToAlbumItem = currentItem },
+                    onWallpaper = { wallpaperItem = currentItem },
                     onLockToggle = {
                         if (isLocked) vm.unlock(currentItem) else vm.lock(currentItem)
                     },
@@ -220,13 +264,14 @@ fun ViewerScreen(
                     } else null,
                     onDelete = {
                         // Device items that were synced to Plex get the "delete from Plex as well?" prompt.
+                        val target = currentItem
                         scope.launch {
-                            val key = if (currentItem.isLocal) vm.syncedPlexRatingKey(currentItem) else null
+                            val key = if (target.isLocal) vm.syncedPlexRatingKey(target) else null
                             if (key != null) {
                                 syncedDeleteKey = key
-                                showSyncedDelete = true
+                                syncedDeleteItem = target
                             } else {
-                                showDeleteConfirm = true
+                                deleteItem = target
                             }
                         }
                     },
@@ -237,7 +282,7 @@ fun ViewerScreen(
             AnimatedVisibility(visible = !immersive && !slideshow, enter = fadeIn(), exit = fadeOut()) {
                 ViewerBottomBar(
                     item = currentItem,
-                    onShare = { showShare = true },
+                    onShare = { shareItem = currentItem },
                     onFavourite = { vm.toggleFavourite(currentItem) },
                     onEdit = {
                         val idOrUri = if (currentItem.isLocal) currentItem.localUri ?: currentItem.id else currentItem.id
@@ -250,7 +295,7 @@ fun ViewerScreen(
                                 .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't save") }
                         }
                     },
-                    onInfo = { showInfo = true },
+                    onInfo = { infoItem = currentItem },
                 )
             }
         },
@@ -273,7 +318,7 @@ fun ViewerScreen(
                                 onDragStart = { dragging = true },
                                 onDragEnd = {
                                     dragging = false
-                                    if (abs(dragOffsetY) > 260f) onClose() else dragOffsetY = 0f
+                                    if (abs(dragOffsetY) > 260f) close() else dragOffsetY = 0f
                                 },
                                 onDragCancel = { dragging = false; dragOffsetY = 0f },
                                 onVerticalDrag = { change, amount ->
@@ -319,72 +364,92 @@ fun ViewerScreen(
         }
     }
 
-    if (showInfo) {
+    infoItem?.let { target ->
+        val item = fresh(target)
         InfoSheet(
-            item = currentItem,
-            onDismiss = { showInfo = false },
-            onSummaryChange = { vm.setSummary(currentItem, it) },
-            onAddTag = { vm.addTag(currentItem, it) },
-            onRemoveTag = { vm.removeTag(currentItem, it) },
+            item = item,
+            onDismiss = { infoItem = null },
+            onSummaryChange = { vm.setSummary(fresh(target), it) },
+            onAddTag = { vm.addTag(fresh(target), it) },
+            onRemoveTag = { vm.removeTag(fresh(target), it) },
         )
     }
-    if (showShare) {
-        ShareSheet(items = listOf(currentItem), onDismiss = { showShare = false })
+    shareItem?.let { target ->
+        ShareSheet(items = listOf(target), onDismiss = { shareItem = null })
     }
-    if (showRename) {
+    renameItem?.let { target ->
         RenameDialog(
-            current = currentItem.title,
-            onDismiss = { showRename = false },
-            onConfirm = { vm.rename(currentItem, it); showRename = false },
+            current = target.title,
+            onDismiss = { renameItem = null },
+            onConfirm = { vm.rename(fresh(target), it); renameItem = null },
         )
     }
-    if (showDeleteConfirm) {
+    deleteItem?.let { target ->
         DeleteConfirmDialog(
-            onDismiss = { showDeleteConfirm = false },
-            onConfirm = { showDeleteConfirm = false; performDelete(currentItem) },
+            onDismiss = { deleteItem = null },
+            onConfirm = { deleteItem = null; performDelete(target) },
         )
     }
-    if (showSyncedDelete) {
+    syncedDeleteItem?.let { target ->
         SyncedDeleteConfirmDialog(
-            onDismiss = { showSyncedDelete = false },
+            onDismiss = { syncedDeleteItem = null },
             onDeleteFromBoth = {
-                showSyncedDelete = false
+                syncedDeleteItem = null
                 val key = syncedDeleteKey
                 if (key == null) {
-                    performDelete(currentItem)
+                    performDelete(target)
                 } else {
                     scope.launch {
-                        vm.deleteFromBoth(currentItem, key)
-                            .onSuccess { if (items.size <= 1) onClose() }
+                        vm.deleteFromBoth(target, key)
                             .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't delete from Plex") }
                     }
                 }
             },
-            onPhoneOnly = { showSyncedDelete = false; performDelete(currentItem) },
+            onPhoneOnly = { syncedDeleteItem = null; performDelete(target) },
         )
     }
-    if (showWallpaperSheet) {
+    wallpaperItem?.let { target ->
         WallpaperSheet(
-            onDismiss = { showWallpaperSheet = false },
+            onDismiss = { wallpaperItem = null },
             onPick = { home, lock ->
-                showWallpaperSheet = false
+                wallpaperItem = null
                 scope.launch {
-                    MediaActions.setWallpaperFlags(context, currentItem, home, lock)
+                    MediaActions.setWallpaperFlags(context, target, home, lock)
                         .onSuccess { snackbarHostState.showSnackbar("Wallpaper set") }
                         .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't set wallpaper") }
                 }
             },
         )
     }
-    if (showAddToAlbum) {
+    addToAlbumItem?.let { target ->
         AddToAlbumSheet(
-            itemIds = listOf(currentItem.id),
-            onDismiss = { showAddToAlbum = false },
+            itemIds = listOf(target.id),
+            onDismiss = { addToAlbumItem = null },
             onAdded = { title ->
-                showAddToAlbum = false
+                addToAlbumItem = null
                 scope.launch { snackbarHostState.showSnackbar("Added to $title") }
             },
         )
     }
 
+}
+
+/** Shown when the viewer's items could not be loaded at all (rather than closing straight away). */
+@Composable
+private fun ViewerLoadError(message: String, onRetry: () -> Unit, onClose: () -> Unit) {
+    BackHandler(onBack = onClose)
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+            Text(stringResource(R.string.viewer_load_failed), style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Spacer(Modifier.height(8.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
+            Spacer(Modifier.height(24.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = onClose) { Text(stringResource(R.string.action_close), color = Color.White) }
+                Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = PlexGold)) {
+                    Text(stringResource(R.string.action_retry))
+                }
+            }
+        }
+    }
 }

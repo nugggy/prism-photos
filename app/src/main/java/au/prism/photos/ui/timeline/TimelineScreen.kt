@@ -1,5 +1,7 @@
 package au.prism.photos.ui.timeline
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -62,6 +64,8 @@ fun TimelineScreen(
     val scope = rememberCoroutineScope()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+    SelectionBackHandler(selection)
     var refreshing by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAddToAlbum by remember { mutableStateOf(false) }
@@ -69,6 +73,7 @@ fun TimelineScreen(
     val pick = LocalPickHandler.current
 
     val columns = settings.gridColumns.coerceIn(2, 6)
+    val thumbSize = thumbSizeForColumns(columns)
     val grouped = remember(items) { groupByMonth(items) }
     val flatRows = remember(grouped) { flattenRows(grouped) }
 
@@ -92,12 +97,8 @@ fun TimelineScreen(
                             snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                         }
                     },
-                    onToggleFavourite = {
-                        scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear() }
-                    },
-                    onLock = {
-                        scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() }
-                    },
+                    onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
+                    onLock = { selectionActions.lock(selection.selected) },
                     onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )
@@ -144,7 +145,8 @@ fun TimelineScreen(
                                 },
                             contentPadding = PaddingValues(2.dp),
                         ) {
-                            grouped.forEach { (month, monthItems) ->
+                            grouped.forEach { group ->
+                                val month = group.month
                                 item(span = { GridItemSpan(maxLineSpan) }, key = "header-$month") {
                                     Text(
                                         month,
@@ -152,12 +154,11 @@ fun TimelineScreen(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
                                     )
                                 }
-                                val startIndexInFlat = items.indexOf(monthItems.first())
-                                itemsIndexed(monthItems, key = { _, it -> it.id }) { idx, item ->
-                                    val globalIndex = startIndexInFlat + idx
+                                itemsIndexed(group.items, key = { _, it -> it.id }) { idx, item ->
+                                    val globalIndex = group.flatIndices[idx]
                                     MediaCell(
                                         item = item,
-                                        thumbUrl = graph.media.thumbUrl(item, 400 + (6 - columns) * 100),
+                                        thumbUrl = graph.media.thumbUrl(item, thumbSize),
                                         selected = item.id in selection.selected,
                                         selectionMode = selection.active,
                                         onClick = {

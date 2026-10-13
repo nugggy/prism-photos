@@ -1,5 +1,7 @@
 package au.prism.photos.ui.search
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +39,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import au.prism.photos.PrismApp
@@ -43,6 +48,7 @@ import au.prism.photos.domain.MediaItem
 import au.prism.photos.ui.albums.AddToAlbumSheet
 import au.prism.photos.ui.components.ConfirmDeleteDialog
 import au.prism.photos.ui.components.EmptyState
+import au.prism.photos.ui.components.ErrorState
 import au.prism.photos.ui.components.MediaSelectionOps
 import au.prism.photos.ui.components.SelectableMediaGrid
 import au.prism.photos.ui.components.SelectionState
@@ -66,14 +72,19 @@ fun SearchScreen(
     val gridState = rememberLazyGridState()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+    SelectionBackHandler(selection)
 
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+    var retryNonce by remember { mutableIntStateOf(0) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAddToAlbum by remember { mutableStateOf(false) }
     var shareItems by remember { mutableStateOf<List<MediaItem>?>(null) }
     val recents = remember { mutableStateListOf<String>() }
+    val searchFailedFallback = stringResource(R.string.search_failed)
 
     val timeline by graph.media.timeline.collectAsStateWithLifecycle()
     val tagChips = remember(timeline) {
@@ -87,7 +98,8 @@ fun SearchScreen(
             .distinct().sortedDescending().take(10).map { it.toString() }
     }
 
-    LaunchedEffect(query) {
+    LaunchedEffect(query, retryNonce) {
+        searchError = null
         if (query.isBlank()) {
             results = emptyList()
             searching = false
@@ -97,7 +109,7 @@ fun SearchScreen(
         delay(400)
         graph.media.search(query)
             .onSuccess { results = it }
-            .onFailure { results = emptyList() }
+            .onFailure { results = emptyList(); searchError = it.message ?: searchFailedFallback }
         searching = false
     }
 
@@ -126,8 +138,8 @@ fun SearchScreen(
                             snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                         }
                     },
-                    onToggleFavourite = { scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear() } },
-                    onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
+                    onLock = { selectionActions.lock(selection.selected) },
                     onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )
@@ -181,6 +193,7 @@ fun SearchScreen(
                     }
                 }
                 searching && results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+                searchError != null -> ErrorState(searchError!!, onRetry = { retryNonce++ })
                 results.isEmpty() -> EmptyState("No results for “$query”")
                 else -> SelectableMediaGrid(
                     items = results,

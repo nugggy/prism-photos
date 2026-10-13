@@ -35,10 +35,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import kotlin.math.roundToInt
 
-private val framePresetColours = listOf(Color.White, Color.Black, PlexGold, Color(0xFFB0BEC5), Color(0xFFEF9A9A), Color(0xFF90CAF9), Color(0xFFA5D6A7), Color(0xFFCE93D8))
+private val framePresetColours = listOf(
+    NamedColour(Color.White, R.string.colour_white),
+    NamedColour(Color.Black, R.string.colour_black),
+    NamedColour(PlexGold, R.string.colour_gold),
+    NamedColour(Color(0xFFB0BEC5), R.string.colour_grey),
+    NamedColour(Color(0xFFEF9A9A), R.string.colour_light_red),
+    NamedColour(Color(0xFF90CAF9), R.string.colour_light_blue),
+    NamedColour(Color(0xFFA5D6A7), R.string.colour_light_green),
+    NamedColour(Color(0xFFCE93D8), R.string.colour_light_purple),
+)
 
 @Composable
 fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, modifier: Modifier = Modifier) {
@@ -60,17 +70,13 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
         )
 
         Text("Border colour", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            framePresetColours.forEach { colour ->
-                Box(
-                    Modifier
-                        .size(30.dp)
-                        .background(colour, CircleShape)
-                        .border(if (frame.borderColorArgb == colour.toArgb()) 2.dp else 1.dp, if (frame.borderColorArgb == colour.toArgb()) PlexGold else Color.Gray, CircleShape)
-                        .clickable { vm.commitFrame(frame.copy(borderColorArgb = colour.toArgb())) },
-                )
-            }
-        }
+        ColourSwatchRow(
+            colours = framePresetColours,
+            selectedArgb = frame.borderColorArgb,
+            onPick = { colour -> vm.commitFrame(frame.copy(borderColorArgb = colour.toArgb())) },
+            swatchSize = 30.dp,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        )
 
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Rounded corners", style = MaterialTheme.typography.labelMedium)

@@ -1,5 +1,7 @@
 package au.prism.photos.ui.device
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -94,6 +96,8 @@ fun DeviceScreen(
     val scope = rememberCoroutineScope()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+    SelectionBackHandler(selection)
     val ledgerEntries by graph.syncLedger.entries.collectAsStateWithLifecycle()
 
     var hasPermission by remember { mutableStateOf(false) }
@@ -191,7 +195,7 @@ fun DeviceScreen(
                         }
                     },
                     onToggleFavourite = null,
-                    onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onLock = { selectionActions.lock(selection.selected) },
                     onUpload = { uploadUris = selectedItems.mapNotNull { it.localUri } },
                     onDelete = { requestDelete(selectedItems) },
                 )

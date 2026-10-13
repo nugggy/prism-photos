@@ -9,22 +9,37 @@ object Routes {
     const val SERVERS = "servers"
     const val LIBRARIES = "libraries"
     const val HOME = "home"                 // bottom nav host: photos, albums, favourites, device, locked
-    const val ALBUM = "album/{albumId}"
+    const val ALBUM = "album/{albumId}?locked={locked}"
     const val MY_ALBUM = "myalbum/{albumId}"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
-    const val VIEWER = "viewer/{source}/{index}"
-    const val EDITOR = "editor/{itemId}"
-    const val VIDEO_EDITOR = "videoeditor/{itemId}"
+    const val VIEWER = "viewer/{source}/{index}?locked={locked}"
+    const val EDITOR = "editor/{itemId}?locked={locked}"
+    const val VIDEO_EDITOR = "videoeditor/{itemId}?locked={locked}"
     const val UPLOAD = "upload/{uris}"
 
-    fun album(albumId: String) = "album/$albumId"
-    fun myAlbum(albumId: String) = "myalbum/$albumId"
-    fun viewer(source: String, index: Int) = "viewer/$source/$index"
-    fun editor(itemId: String) = "editor/$itemId"
-    fun videoEditor(itemId: String) = "videoeditor/${java.net.URLEncoder.encode(itemId, "UTF-8")}"
-    /** [uris] are content URIs of device items; joined with | and URL encoded. */
-    fun upload(uris: List<String>) = "upload/${java.net.URLEncoder.encode(uris.joinToString("|"), "UTF-8")}"
+    /*
+     * Ids can be Plex rating keys or content:// URIs (which contain '/', ':' and '%'), so path
+     * arguments are carried as unpadded base64url via [encodeArg] and read back with [decodeArg].
+     * That alphabet has nothing Navigation will percent-decode, so no double decoding surprises.
+     *
+     * [locked] marks a destination opened from locked content (the Locked tab, a locked album, or
+     * something opened from those), so PrismNavHost keeps it behind the LockGate.
+     */
+    fun album(albumId: String, locked: Boolean = false) = "album/${encodeArg(albumId)}?locked=$locked"
+    fun myAlbum(albumId: String) = "myalbum/${encodeArg(albumId)}"
+    fun viewer(source: String, index: Int, locked: Boolean = false) = "viewer/$source/$index?locked=$locked"
+    fun editor(itemId: String, locked: Boolean = false) = "editor/${encodeArg(itemId)}?locked=$locked"
+    fun videoEditor(itemId: String, locked: Boolean = false) = "videoeditor/${encodeArg(itemId)}?locked=$locked"
+    /** [uris] are content URIs of device items, joined with |. */
+    fun upload(uris: List<String>) = "upload/${encodeArg(uris.joinToString("|"))}"
+
+    fun encodeArg(value: String): String =
+        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(Charsets.UTF_8))
+
+    /** Inverse of [encodeArg]. Falls back to the raw value if it is not valid base64url. */
+    fun decodeArg(raw: String): String =
+        runCatching { String(java.util.Base64.getUrlDecoder().decode(raw), Charsets.UTF_8) }.getOrDefault(raw)
 }
 
 /**
