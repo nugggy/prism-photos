@@ -1,7 +1,9 @@
 package au.prism.photos.ui.editor
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import au.prism.photos.R
 import kotlinx.serialization.Serializable
 
 /** Normalised (0..1) crop rectangle relative to the working bitmap. */
@@ -43,12 +45,12 @@ data class Adjustments(
 }
 
 @Serializable
-enum class FilterPreset(val label: String) {
-    ORIGINAL("Original"), VIVID("Vivid"), WARM("Warm"), COOL("Cool"),
-    MONO("Mono"), SILVER("Silver"), SEPIA("Sepia"), FADE("Fade"),
-    NOIR("Noir"), MATTE("Matte"), FILM("Film"), GOLDEN("Golden"),
-    TEAL_ORANGE("Teal and orange"), CINEMATIC("Cinematic"), PASTEL("Pastel"),
-    HIGH_KEY("High key"), LOW_KEY("Low key"), VINTAGE("Vintage"),
+enum class FilterPreset(@StringRes val labelRes: Int) {
+    ORIGINAL(R.string.editor_filter_original), VIVID(R.string.editor_filter_vivid), WARM(R.string.editor_filter_warm), COOL(R.string.editor_filter_cool),
+    MONO(R.string.editor_filter_mono), SILVER(R.string.editor_filter_silver), SEPIA(R.string.editor_filter_sepia), FADE(R.string.editor_filter_fade),
+    NOIR(R.string.editor_filter_noir), MATTE(R.string.editor_filter_matte), FILM(R.string.editor_filter_film), GOLDEN(R.string.editor_filter_golden),
+    TEAL_ORANGE(R.string.editor_filter_teal_orange), CINEMATIC(R.string.editor_filter_cinematic), PASTEL(R.string.editor_filter_pastel),
+    HIGH_KEY(R.string.editor_filter_high_key), LOW_KEY(R.string.editor_filter_low_key), VINTAGE(R.string.editor_filter_vintage),
 }
 
 enum class MarkupTool { NONE, PEN, HIGHLIGHTER, ARROW, RECTANGLE, ELLIPSE, TEXT, EMOJI, BLUR_BRUSH, ERASER }
@@ -135,10 +137,10 @@ enum class ExportFormat(val label: String, val extension: String, val mime: Stri
     WEBP("WebP", "webp", "image/webp"),
 }
 
-enum class ExportSizeChoice(val label: String, val longestEdge: Int?) {
-    ORIGINAL("Original", null),
-    SIZE_2048("2048px", 2048),
-    SIZE_1080("1080px", 1080),
+enum class ExportSizeChoice(val longestEdge: Int?) {
+    ORIGINAL(null),
+    SIZE_2048(2048),
+    SIZE_1080(1080),
 }
 
 data class ExportSettings(
@@ -183,6 +185,7 @@ fun EditState.applyLook(look: EditLook): EditState = copy(
 @Serializable
 data class EditorPreset(val id: String, val name: String, val look: EditLook)
 
-enum class EditorTool(val label: String) {
-    ADJUST("Adjust"), FILTERS("Filters"), CROP("Crop"), MARKUP("Markup"), FRAMES("Frames"), EXPORT("Export"),
+enum class EditorTool(@StringRes val labelRes: Int) {
+    ADJUST(R.string.editor_tab_adjust), FILTERS(R.string.editor_tab_filters), CROP(R.string.editor_tab_crop),
+    MARKUP(R.string.editor_tab_markup), FRAMES(R.string.editor_tab_frames), EXPORT(R.string.editor_tab_export),
 }

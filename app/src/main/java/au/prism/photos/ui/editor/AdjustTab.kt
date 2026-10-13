@@ -1,5 +1,6 @@
 package au.prism.photos.ui.editor
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,12 +25,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import kotlin.math.roundToInt
 
 private data class AdjustField(
-    val label: String,
+    @StringRes val labelRes: Int,
     val range: ClosedFloatingPointRange<Float>,
     val default: Float,
     val get: (Adjustments) -> Float,
@@ -37,26 +40,26 @@ private data class AdjustField(
 )
 
 private val adjustFields = listOf(
-    AdjustField("Brightness", -100f..100f, 0f, { it.brightness }, { a, v -> a.copy(brightness = v) }),
-    AdjustField("Exposure", -100f..100f, 0f, { it.exposure }, { a, v -> a.copy(exposure = v) }),
-    AdjustField("Contrast", -100f..100f, 0f, { it.contrast }, { a, v -> a.copy(contrast = v) }),
-    AdjustField("Highlights", -100f..100f, 0f, { it.highlights }, { a, v -> a.copy(highlights = v) }),
-    AdjustField("Shadows", -100f..100f, 0f, { it.shadows }, { a, v -> a.copy(shadows = v) }),
-    AdjustField("Whites", -100f..100f, 0f, { it.whites }, { a, v -> a.copy(whites = v) }),
-    AdjustField("Blacks", -100f..100f, 0f, { it.blacks }, { a, v -> a.copy(blacks = v) }),
-    AdjustField("Saturation", -100f..100f, 0f, { it.saturation }, { a, v -> a.copy(saturation = v) }),
-    AdjustField("Vibrance", -100f..100f, 0f, { it.vibrance }, { a, v -> a.copy(vibrance = v) }),
-    AdjustField("Warmth", -100f..100f, 0f, { it.warmth }, { a, v -> a.copy(warmth = v) }),
-    AdjustField("Tint", -100f..100f, 0f, { it.tint }, { a, v -> a.copy(tint = v) }),
-    AdjustField("Hue shift", -100f..100f, 0f, { it.hueShift }, { a, v -> a.copy(hueShift = v) }),
-    AdjustField("Fade", 0f..100f, 0f, { it.fade }, { a, v -> a.copy(fade = v) }),
-    AdjustField("Dehaze", 0f..100f, 0f, { it.dehaze }, { a, v -> a.copy(dehaze = v) }),
-    AdjustField("Sharpness", 0f..100f, 0f, { it.sharpness }, { a, v -> a.copy(sharpness = v) }),
-    AdjustField("Clarity", -100f..100f, 0f, { it.clarity }, { a, v -> a.copy(clarity = v) }),
-    AdjustField("Blur (soften)", 0f..100f, 0f, { it.blur }, { a, v -> a.copy(blur = v) }),
-    AdjustField("Vignette strength", 0f..100f, 0f, { it.vignetteStrength }, { a, v -> a.copy(vignetteStrength = v) }),
-    AdjustField("Vignette softness", 0f..100f, 50f, { it.vignetteSoftness }, { a, v -> a.copy(vignetteSoftness = v) }),
-    AdjustField("Grain", 0f..100f, 0f, { it.grain }, { a, v -> a.copy(grain = v) }),
+    AdjustField(R.string.editor_adjust_brightness, -100f..100f, 0f, { it.brightness }, { a, v -> a.copy(brightness = v) }),
+    AdjustField(R.string.editor_adjust_exposure, -100f..100f, 0f, { it.exposure }, { a, v -> a.copy(exposure = v) }),
+    AdjustField(R.string.editor_adjust_contrast, -100f..100f, 0f, { it.contrast }, { a, v -> a.copy(contrast = v) }),
+    AdjustField(R.string.editor_adjust_highlights, -100f..100f, 0f, { it.highlights }, { a, v -> a.copy(highlights = v) }),
+    AdjustField(R.string.editor_adjust_shadows, -100f..100f, 0f, { it.shadows }, { a, v -> a.copy(shadows = v) }),
+    AdjustField(R.string.editor_adjust_whites, -100f..100f, 0f, { it.whites }, { a, v -> a.copy(whites = v) }),
+    AdjustField(R.string.editor_adjust_blacks, -100f..100f, 0f, { it.blacks }, { a, v -> a.copy(blacks = v) }),
+    AdjustField(R.string.editor_adjust_saturation, -100f..100f, 0f, { it.saturation }, { a, v -> a.copy(saturation = v) }),
+    AdjustField(R.string.editor_adjust_vibrance, -100f..100f, 0f, { it.vibrance }, { a, v -> a.copy(vibrance = v) }),
+    AdjustField(R.string.editor_adjust_warmth, -100f..100f, 0f, { it.warmth }, { a, v -> a.copy(warmth = v) }),
+    AdjustField(R.string.editor_adjust_tint, -100f..100f, 0f, { it.tint }, { a, v -> a.copy(tint = v) }),
+    AdjustField(R.string.editor_adjust_hue_shift, -100f..100f, 0f, { it.hueShift }, { a, v -> a.copy(hueShift = v) }),
+    AdjustField(R.string.editor_adjust_fade, 0f..100f, 0f, { it.fade }, { a, v -> a.copy(fade = v) }),
+    AdjustField(R.string.editor_adjust_dehaze, 0f..100f, 0f, { it.dehaze }, { a, v -> a.copy(dehaze = v) }),
+    AdjustField(R.string.editor_adjust_sharpness, 0f..100f, 0f, { it.sharpness }, { a, v -> a.copy(sharpness = v) }),
+    AdjustField(R.string.editor_adjust_clarity, -100f..100f, 0f, { it.clarity }, { a, v -> a.copy(clarity = v) }),
+    AdjustField(R.string.editor_adjust_blur, 0f..100f, 0f, { it.blur }, { a, v -> a.copy(blur = v) }),
+    AdjustField(R.string.editor_adjust_vignette_strength, 0f..100f, 0f, { it.vignetteStrength }, { a, v -> a.copy(vignetteStrength = v) }),
+    AdjustField(R.string.editor_adjust_vignette_softness, 0f..100f, 50f, { it.vignetteSoftness }, { a, v -> a.copy(vignetteSoftness = v) }),
+    AdjustField(R.string.editor_adjust_grain, 0f..100f, 0f, { it.grain }, { a, v -> a.copy(grain = v) }),
 )
 
 @Composable
@@ -65,7 +68,7 @@ fun AdjustTab(vm: EditorViewModel, adjustments: Adjustments, modifier: Modifier 
         item {
             TextButton(onClick = { vm.autoEnhance() }) {
                 Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
-                Text("Auto enhance", color = PlexGold)
+                Text(stringResource(R.string.editor_auto_enhance), color = PlexGold)
             }
         }
         items(adjustFields) { field ->
@@ -84,7 +87,7 @@ private fun AdjustSliderRow(field: AdjustField, value: Float, onLive: (Float) ->
     var current by remember(value) { mutableStateOf(value) }
     Column(Modifier.padding(vertical = 2.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(field.label, style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(field.labelRes), style = MaterialTheme.typography.labelMedium)
             Text(current.roundToInt().toString(), style = MaterialTheme.typography.labelMedium, color = PlexGold)
         }
         Slider(
@@ -95,7 +98,7 @@ private fun AdjustSliderRow(field: AdjustField, value: Float, onLive: (Float) ->
             colors = SliderDefaults.colors(thumbColor = PlexGold, activeTrackColor = PlexGold),
             modifier = Modifier
                 .fillMaxWidth()
-                .pointerInput(field.label) {
+                .pointerInput(field.labelRes) {
                     detectTapGestures(onDoubleTap = {
                         current = field.default
                         onLive(field.default)

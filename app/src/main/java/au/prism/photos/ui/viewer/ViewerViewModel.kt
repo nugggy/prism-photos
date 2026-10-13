@@ -14,10 +14,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -28,11 +30,23 @@ import kotlinx.coroutines.withTimeoutOrNull
  * following the repository's StateFlows; the other sources are loaded once and then updated
  * optimistically as actions succeed.
  */
-class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
+class ViewerViewModel(private val source: ViewerSource, showLocked: Boolean = false) : ViewModel() {
     private val graph = PrismApp.graph
 
     private val _items = MutableStateFlow<List<MediaItem>>(emptyList())
-    val items: StateFlow<List<MediaItem>> = _items.asStateFlow()
+
+    /**
+     * The pager's items. Outside the lock (anything but the Locked view or a locked album), items
+     * locked while the viewer is open, from here or elsewhere, drop out straight away.
+     */
+    val items: StateFlow<List<MediaItem>> =
+        if (showLocked || source == ViewerSource.Locked) {
+            _items.asStateFlow()
+        } else {
+            combine(_items, graph.local.lockedItemIds) { list, locked ->
+                if (locked.isEmpty()) list else list.filterNot { it.id in locked }
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        }
 
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
@@ -89,7 +103,7 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
                 }
                 delay(EMPTY_GRACE_MS)
             }
-            if (_items.value.isEmpty()) {
+            if (items.value.isEmpty()) {
                 val state = graph.media.timelineState.value
                 if (state is LoadState.Error) _loadError.value = state.message
                 _loading.value = false
@@ -135,7 +149,7 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
     }
 
     private fun onError(t: Throwable) {
-        _error.value = t.message ?: "Something went wrong"
+        _error.value = t.message ?: PrismApp.instance.getString(R.string.viewer_action_failed)
     }
 
     private fun applySort(list: List<MediaItem>, sort: SortOrder?): List<MediaItem> = when (sort) {
@@ -259,7 +273,7 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
         try {
             val uri = Uri.parse(item.localUri)
             val rows = PrismApp.instance.contentResolver.delete(uri, null, null)
-            if (rows > 0) Result.success(Unit) else Result.failure(Exception("Couldn't delete file"))
+            if (rows > 0) Result.success(Unit) else Result.failure(Exception(PrismApp.instance.getString(R.string.viewer_delete_file_failed)))
         } catch (e: Exception) {
             // On Android 10+ this may be a RecoverableSecurityException; the caller can inspect
             // it and launch the system confirmation dialog, then retry delete().
@@ -277,11 +291,11 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
         private const val EMPTY_GRACE_MS = 1_500L
     }
 
-    class Factory(private val source: ViewerSource) : ViewModelProvider.Factory {
+    class Factory(private val source: ViewerSource, private val showLocked: Boolean = false) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(ViewerViewModel::class.java))
-            return ViewerViewModel(source) as T
+            return ViewerViewModel(source, showLocked) as T
         }
     }
 }

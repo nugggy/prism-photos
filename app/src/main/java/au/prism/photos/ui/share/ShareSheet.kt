@@ -43,14 +43,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.toBitmap
 import au.prism.photos.BuildConfig
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.Downloader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -95,8 +98,10 @@ fun ShareSheet(
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            error = e.message ?: "Couldn't prepare the files to share"
+            error = e.message ?: context.getString(R.string.share_prepare_failed)
         } finally {
             preparing = false
         }
@@ -104,7 +109,7 @@ fun ShareSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
-            Text("Share", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.share_title), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
 
             when {
@@ -115,7 +120,7 @@ fun ShareSheet(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("Preparing", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.share_preparing), style = MaterialTheme.typography.bodySmall)
                 }
                 error != null -> {
                     Text(error ?: "", color = MaterialTheme.colorScheme.error)
@@ -136,7 +141,7 @@ fun ShareSheet(
                         }
                         if (smsPackage != null) {
                             item {
-                                ShareTargetButton(label = "Messages", icon = appIcon(pm, smsPackage)) {
+                                ShareTargetButton(label = stringResource(R.string.share_messages), icon = appIcon(pm, smsPackage)) {
                                     launchDirect(context, preparedUris, mimeType, smsPackage)
                                     onDismiss()
                                 }
@@ -144,14 +149,14 @@ fun ShareSheet(
                         }
                         if (canCopyLink) {
                             item {
-                                ShareTargetButton(label = "Copy link", icon = null, fallback = Icons.Filled.ContentCopy) {
+                                ShareTargetButton(label = stringResource(R.string.share_copy_link), icon = null, fallback = Icons.Filled.ContentCopy) {
                                     copyLink(context, items[0])
                                     onDismiss()
                                 }
                             }
                         }
                         item {
-                            ShareTargetButton(label = "More", icon = null, fallback = Icons.Filled.MoreHoriz) {
+                            ShareTargetButton(label = stringResource(R.string.share_more), icon = null, fallback = Icons.Filled.MoreHoriz) {
                                 launchChooser(context, preparedUris, mimeType)
                                 onDismiss()
                             }
@@ -198,11 +203,11 @@ private fun ShareTargetButton(
     }
 }
 
-private fun prepareUri(context: Context, item: MediaItem, onProgress: (Long, Long) -> Unit): Uri {
+private suspend fun prepareUri(context: Context, item: MediaItem, onProgress: (Long, Long) -> Unit): Uri {
     if (item.isLocal) return Uri.parse(item.localUri)
     val dir = File(context.cacheDir, "share").apply { mkdirs() }
     val dest = File(dir, fileNameFor(item))
-    Downloader.download(PrismApp.graph.media.downloadUrl(item), dest, onProgress)
+    Downloader.downloadAwait(PrismApp.graph.media.downloadUrl(item), dest, onProgress)
     return FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.fileprovider", dest)
 }
 
@@ -248,14 +253,14 @@ private fun launchDirect(context: Context, uris: List<Uri>, mimeType: String, pa
         val intent = buildShareIntent(uris, mimeType).apply { setPackage(packageName) }
         context.startActivity(intent)
     } catch (e: Exception) {
-        Toast.makeText(context, "Couldn't open that app", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.share_open_app_failed, Toast.LENGTH_SHORT).show()
     }
 }
 
 private fun launchChooser(context: Context, uris: List<Uri>, mimeType: String) {
     if (uris.isEmpty()) return
     val intent = buildShareIntent(uris, mimeType)
-    context.startActivity(Intent.createChooser(intent, "Share"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_title)))
 }
 
 private fun copyLink(context: Context, item: MediaItem) {
@@ -263,8 +268,8 @@ private fun copyLink(context: Context, item: MediaItem) {
     val serverId = session.server?.clientIdentifier
     val url = "https://app.plex.tv/desktop/#!/server/$serverId/details?key=/library/metadata/${item.id}"
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-    clipboard?.setPrimaryClip(ClipData.newPlainText("Plex link", url))
-    Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+    clipboard?.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_label), url))
+    Toast.makeText(context, R.string.share_link_copied, Toast.LENGTH_SHORT).show()
 }
 
 private fun isInstalled(pm: PackageManager, packageName: String): Boolean = try {

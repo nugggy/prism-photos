@@ -40,12 +40,9 @@ jobs:
       - name: Build minified release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      # Lint currently reports a pre-existing error in ui/viewer/ViewerScreen.kt
-      # (UnusedMaterial3ScaffoldPaddingParameter), so it does not fail the build yet; the report
-      # is uploaded below. Remove continue-on-error once lint is clean.
+      # Lint errors fail the build; the full report is uploaded below either way.
       - name: Lint
         run: ./gradlew lintDebug --no-daemon
-        continue-on-error: true
 
       - uses: actions/upload-artifact@v4
         with:

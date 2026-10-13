@@ -1,5 +1,8 @@
 package au.prism.photos.ui.timeline
 
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -94,7 +97,7 @@ fun TimelineScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
@@ -110,7 +113,7 @@ fun TimelineScreen(
             when {
                 loadState is LoadState.Error && items.isEmpty() -> ErrorState((loadState as LoadState.Error).message, onRetry = { scope.launch { graph.media.refreshTimeline(force = true) } })
                 loadState is LoadState.Loading && items.isEmpty() -> LoadingState()
-                items.isEmpty() -> EmptyState("No photos yet", "Photos and videos from this library will show up here.")
+                items.isEmpty() -> EmptyState(stringResource(R.string.timeline_empty_title), stringResource(R.string.timeline_empty_body))
                 else -> {
                     var scaleAccum by remember { mutableFloatStateOf(1f) }
                     PullToRefreshBox(
@@ -212,7 +215,7 @@ fun TimelineScreen(
             onAdded = { title ->
                 showAddToAlbum = false
                 selection.clear()
-                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.selection_added_to_album, title)) }
             },
         )
     }

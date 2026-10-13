@@ -30,8 +30,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.Album
 import kotlinx.coroutines.launch
 
@@ -52,22 +56,23 @@ fun AddToAlbumSheet(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var newAlbumOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         graph.media.myAlbums()
             .onSuccess { albums = it.filterNot { a -> a.readOnly } }
-            .onFailure { error = it.message ?: "Could not load albums" }
+            .onFailure { error = it.message ?: context.getString(R.string.albums_load_failed) }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             Text(
-                "Add to album",
+                stringResource(R.string.albums_add_to_album),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             ListItem(
-                headlineContent = { Text("New album") },
+                headlineContent = { Text(stringResource(R.string.albums_new_album)) },
                 leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
                 modifier = Modifier.clickable(enabled = !busy) { newAlbumOpen = true },
             )
@@ -81,7 +86,7 @@ fun AddToAlbumSheet(
                     CircularProgressIndicator()
                 }
                 albums!!.isEmpty() -> Text(
-                    "No albums yet. Create one above.",
+                    stringResource(R.string.albums_add_sheet_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),
@@ -91,7 +96,7 @@ fun AddToAlbumSheet(
                         ListItem(
                             headlineContent = { Text(album.title) },
                             supportingContent = if (album.itemCount > 0) {
-                                { Text(if (album.itemCount == 1) "1 item" else "${album.itemCount} items") }
+                                { Text(pluralStringResource(R.plurals.common_item_count, album.itemCount, album.itemCount)) }
                             } else null,
                             leadingContent = { Icon(Icons.Filled.PhotoAlbum, contentDescription = null) },
                             modifier = Modifier.clickable(enabled = !busy) {
@@ -99,7 +104,7 @@ fun AddToAlbumSheet(
                                 scope.launch {
                                     graph.media.addToMyAlbum(album.id, itemIds)
                                         .onSuccess { onAdded(album.title) }
-                                        .onFailure { error = it.message ?: "Couldn't add to album" }
+                                        .onFailure { error = it.message ?: context.getString(R.string.albums_add_failed) }
                                     busy = false
                                 }
                             },
@@ -114,13 +119,13 @@ fun AddToAlbumSheet(
         var text by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { newAlbumOpen = false },
-            title = { Text("New album") },
+            title = { Text(stringResource(R.string.albums_new_album)) },
             text = {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    placeholder = { Text("Album title") },
+                    placeholder = { Text(stringResource(R.string.albums_title_placeholder)) },
                 )
             },
             confirmButton = {
@@ -132,12 +137,12 @@ fun AddToAlbumSheet(
                         scope.launch {
                             graph.media.createMyAlbum(title, itemIds)
                                 .onSuccess { onAdded(title) }
-                                .onFailure { error = it.message ?: "Couldn't create album" }
+                                .onFailure { error = it.message ?: context.getString(R.string.albums_create_failed) }
                         }
                     },
-                ) { Text("Create") }
+                ) { Text(stringResource(R.string.action_create)) }
             },
-            dismissButton = { TextButton(onClick = { newAlbumOpen = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { newAlbumOpen = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

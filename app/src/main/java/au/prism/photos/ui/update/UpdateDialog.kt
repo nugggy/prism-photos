@@ -15,7 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.domain.DownloadProgress
 import au.prism.photos.ui.components.formatDateShort
 import java.time.OffsetDateTime
@@ -26,7 +28,7 @@ fun UpdateDialog(vm: UpdateViewModel, onDismiss: () -> Unit) {
     val progress = vm.downloadProgress
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update available – ${info.versionName}") },
+        title = { Text(stringResource(R.string.update_title, info.versionName)) },
         text = {
             Column {
                 Text(formatPublished(info.publishedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -45,10 +47,10 @@ fun UpdateDialog(vm: UpdateViewModel, onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = { vm.download() }, enabled = progress !is DownloadProgress.InProgress) {
-                Text("Download and install")
+                Text(stringResource(R.string.update_install))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_not_now)) } },
     )
 }
 

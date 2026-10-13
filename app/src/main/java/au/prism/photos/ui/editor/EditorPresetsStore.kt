@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import au.prism.photos.R
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -28,7 +29,7 @@ class EditorPresetsStore(private val context: Context) {
 
     suspend fun savePreset(name: String, look: EditLook): List<EditorPreset> {
         val current = loadPresets().toMutableList()
-        val trimmedName = name.trim().ifBlank { "Preset ${current.size + 1}" }
+        val trimmedName = name.trim().ifBlank { context.getString(R.string.editor_preset_default_name, current.size + 1) }
         val preset = EditorPreset(id = System.currentTimeMillis().toString(), name = trimmedName, look = look)
         current.add(0, preset)
         while (current.size > MAX_PRESETS) current.removeAt(current.size - 1)

@@ -34,8 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.exifinterface.media.ExifInterface
+import au.prism.photos.R
 import au.prism.photos.domain.ExifInfo
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.util.Format
@@ -72,37 +74,37 @@ fun InfoSheet(
             Text(Format.dateTime(item.takenAt), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(12.dp))
 
-            InfoRow("Dimensions", "${item.width} × ${item.height}  ·  ${Format.megapixels(item.width, item.height)}")
-            if (item.fileSize > 0) InfoRow("File size", Format.bytes(item.fileSize))
-            item.filePath?.let { InfoRow("File path", it) }
-            exif?.make?.let { InfoRow("Camera make", it) }
-            exif?.model?.let { InfoRow("Camera model", it) }
-            exif?.lens?.let { InfoRow("Lens", it) }
-            exif?.aperture?.let { InfoRow("Aperture", it) }
-            exif?.exposure?.let { InfoRow("Exposure", it) }
-            exif?.iso?.let { InfoRow("ISO", it.toString()) }
+            InfoRow(stringResource(R.string.info_dimensions), "${item.width} × ${item.height}  ·  ${Format.megapixels(item.width, item.height)}")
+            if (item.fileSize > 0) InfoRow(stringResource(R.string.info_file_size), Format.bytes(item.fileSize))
+            item.filePath?.let { InfoRow(stringResource(R.string.info_file_path), it) }
+            exif?.make?.let { InfoRow(stringResource(R.string.info_camera_make), it) }
+            exif?.model?.let { InfoRow(stringResource(R.string.info_camera_model), it) }
+            exif?.lens?.let { InfoRow(stringResource(R.string.info_lens), it) }
+            exif?.aperture?.let { InfoRow(stringResource(R.string.info_aperture), it) }
+            exif?.exposure?.let { InfoRow(stringResource(R.string.info_exposure), it) }
+            exif?.iso?.let { InfoRow(stringResource(R.string.info_iso), it.toString()) }
             if (item.isVideo) {
-                exif?.videoCodec?.let { InfoRow("Video codec", it) }
-                exif?.videoResolution?.let { InfoRow("Video resolution", it) }
-                if (item.durationMs > 0) InfoRow("Duration", Format.duration(item.durationMs))
+                exif?.videoCodec?.let { InfoRow(stringResource(R.string.info_video_codec), it) }
+                exif?.videoResolution?.let { InfoRow(stringResource(R.string.info_video_resolution), it) }
+                if (item.durationMs > 0) InfoRow(stringResource(R.string.info_duration), Format.duration(item.durationMs))
             }
-            item.place?.let { InfoRow("Place", it) }
-            item.country?.let { InfoRow("Country", it) }
-            item.albumTitle?.let { InfoRow("Album", it) }
-            if (!item.isLocal) InfoRow("Plex rating key", item.id)
+            item.place?.let { InfoRow(stringResource(R.string.info_place), it) }
+            item.country?.let { InfoRow(stringResource(R.string.info_country), it) }
+            item.albumTitle?.let { InfoRow(stringResource(R.string.info_album), it) }
+            if (!item.isLocal) InfoRow(stringResource(R.string.info_plex_rating_key), item.id)
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
-            Text("Description", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.info_description), style = MaterialTheme.typography.titleSmall)
             var summaryText by remember(item.id) { mutableStateOf(item.summary) }
             OutlinedTextField(
                 value = summaryText,
                 onValueChange = { summaryText = it },
-                placeholder = { Text("Add a description") },
+                placeholder = { Text(stringResource(R.string.info_add_description)) },
                 trailingIcon = {
                     if (summaryText != item.summary) {
                         IconButton(onClick = { onSummaryChange(summaryText) }) {
-                            Icon(Icons.Filled.Check, contentDescription = "Save description")
+                            Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.info_save_description))
                         }
                     }
                 },
@@ -111,7 +113,7 @@ fun InfoSheet(
 
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
-            Text("Tags", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.viewer_tags), style = MaterialTheme.typography.titleSmall)
             FlowRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                 item.tags.forEach { tag ->
                     InputChip(
@@ -120,7 +122,7 @@ fun InfoSheet(
                         label = { Text(tag) },
                         trailingIcon = {
                             IconButton(onClick = { onRemoveTag(tag) }, modifier = Modifier.height(18.dp)) {
-                                Icon(Icons.Filled.Close, contentDescription = "Remove tag $tag")
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.info_remove_tag, tag))
                             }
                         },
                         modifier = Modifier.padding(end = 8.dp, bottom = 8.dp),
@@ -132,7 +134,7 @@ fun InfoSheet(
                 OutlinedTextField(
                     value = newTag,
                     onValueChange = { newTag = it },
-                    placeholder = { Text("Add tag") },
+                    placeholder = { Text(stringResource(R.string.info_add_tag)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -142,7 +144,7 @@ fun InfoSheet(
                         newTag = ""
                     }
                 }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add tag")
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.info_add_tag))
                 }
             }
         }

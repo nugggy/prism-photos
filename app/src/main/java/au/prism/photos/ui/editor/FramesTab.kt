@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import au.prism.photos.R
@@ -58,7 +59,7 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
 
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Border thickness", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.editor_frame_border_thickness), style = MaterialTheme.typography.labelMedium)
             Text("${borderPercent.roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = PlexGold)
         }
         Slider(
@@ -69,7 +70,7 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
             colors = SliderDefaults.colors(thumbColor = PlexGold, activeTrackColor = PlexGold),
         )
 
-        Text("Border colour", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.editor_frame_border_colour), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
         ColourSwatchRow(
             colours = framePresetColours,
             selectedArgb = frame.borderColorArgb,
@@ -79,7 +80,7 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
         )
 
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Rounded corners", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.editor_frame_rounded_corners), style = MaterialTheme.typography.labelMedium)
             Switch(
                 checked = frame.roundedCorners,
                 onCheckedChange = { vm.commitFrame(frame.copy(roundedCorners = it)) },
@@ -97,7 +98,7 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Polaroid style", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.editor_frame_polaroid), style = MaterialTheme.typography.labelMedium)
             Switch(
                 checked = frame.polaroid,
                 onCheckedChange = { vm.commitFrame(frame.copy(polaroid = it)) },
@@ -106,7 +107,7 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(if (hasTakenAt) "Date stamp" else "Date stamp (unavailable)", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(if (hasTakenAt) R.string.editor_frame_date_stamp else R.string.editor_frame_date_stamp_unavailable), style = MaterialTheme.typography.labelMedium)
             Switch(
                 checked = frame.dateStampEnabled,
                 enabled = hasTakenAt,
@@ -128,17 +129,17 @@ fun FramesTab(vm: EditorViewModel, frame: FrameSettings, hasTakenAt: Boolean, mo
             }
         }
 
-        Text("Watermark text", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.editor_frame_watermark_text), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
         OutlinedTextField(
             value = watermark,
             onValueChange = { watermark = it },
-            placeholder = { Text("e.g. Plex Gallery") },
+            placeholder = { Text(stringResource(R.string.editor_frame_watermark_placeholder)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         )
         TextButton(onClick = { vm.commitFrame(frame.copy(watermarkText = watermark)) }) {
-            Text("Apply watermark", color = PlexGold)
+            Text(stringResource(R.string.editor_frame_apply_watermark), color = PlexGold)
         }
     }
 }

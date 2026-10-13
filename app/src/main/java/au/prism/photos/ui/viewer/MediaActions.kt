@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.util.Downloader
 import coil3.BitmapImage
@@ -102,7 +103,7 @@ object MediaActions {
     suspend fun setWallpaperFlags(context: Context, item: MediaItem, home: Boolean, lock: Boolean): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                val bitmap = loadBitmap(context, item) ?: return@withContext Result.failure(Exception("Couldn't load the image"))
+                val bitmap = loadBitmap(context, item) ?: return@withContext Result.failure(Exception(context.getString(R.string.viewer_image_load_failed)))
                 val manager = WallpaperManager.getInstance(context)
                 var flags = 0
                 if (home) flags = flags or WallpaperManager.FLAG_SYSTEM

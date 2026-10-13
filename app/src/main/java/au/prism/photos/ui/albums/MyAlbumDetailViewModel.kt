@@ -1,5 +1,6 @@
 package au.prism.photos.ui.albums
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,18 +11,23 @@ import au.prism.photos.domain.Album
 import au.prism.photos.domain.MediaItem
 import kotlinx.coroutines.launch
 
-/** Backs [MyAlbumDetailScreen]. My albums are Plex photo playlists: see docs/plex-api.md. */
+/**
+ * Backs [MyAlbumDetailScreen]. My albums are Plex photo playlists: see docs/plex-api.md.
+ * My albums cannot be locked, so items locked while the screen is open drop out straight away.
+ */
 class MyAlbumDetailViewModel(private val graph: AppGraph, private val albumId: String) : ViewModel() {
     var album by mutableStateOf<Album?>(null)
         private set
-    var items by mutableStateOf<List<MediaItem>>(emptyList())
-        private set
+    private var allItems by mutableStateOf<List<MediaItem>>(emptyList())
+    private var lockedItemIds by mutableStateOf(graph.local.lockedItemIds.value)
+    val items: List<MediaItem> by derivedStateOf { allItems.filter { it.id !in lockedItemIds } }
     var loading by mutableStateOf(true)
         private set
     var error by mutableStateOf<String?>(null)
         private set
 
     init {
+        viewModelScope.launch { graph.local.lockedItemIds.collect { lockedItemIds = it } }
         load()
     }
 
@@ -31,7 +37,7 @@ class MyAlbumDetailViewModel(private val graph: AppGraph, private val albumId: S
             error = null
             graph.media.myAlbums().onSuccess { list -> album = list.find { it.id == albumId } }
             graph.media.myAlbumItems(albumId)
-                .onSuccess { items = it; loading = false }
+                .onSuccess { allItems = it; loading = false }
                 .onFailure { error = it.message ?: "Could not load this album"; loading = false }
         }
     }

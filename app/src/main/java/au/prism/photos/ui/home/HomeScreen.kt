@@ -34,12 +34,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.ViewerSource
 import au.prism.photos.ui.albums.AlbumsScreen
 import au.prism.photos.ui.device.DeviceScreen
@@ -78,18 +80,18 @@ fun HomeScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(session.libraryTitle ?: "Plex Gallery") },
+                    title = { Text(session.libraryTitle ?: stringResource(R.string.app_name)) },
                     actions = {
-                        IconButton(onClick = onOpenSearch) { Icon(Icons.Filled.Search, contentDescription = "Search") }
+                        IconButton(onClick = onOpenSearch) { Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_search)) }
                         if (updateVm.available != null) {
                             IconButton(onClick = { updateVm.openDialog() }) {
-                                Icon(Icons.Filled.SystemUpdate, contentDescription = "Update available", tint = PlexGold)
+                                Icon(Icons.Filled.SystemUpdate, contentDescription = stringResource(R.string.home_update_available), tint = PlexGold)
                             }
                         }
-                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.AccountCircle, contentDescription = "Account") }
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.AccountCircle, contentDescription = stringResource(R.string.home_account)) }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(text = { Text(session.user?.title ?: "Account") }, onClick = {}, enabled = false)
-                            DropdownMenuItem(text = { Text("Settings") }, onClick = { menuOpen = false; onOpenSettings() })
+                            DropdownMenuItem(text = { Text(session.user?.title ?: stringResource(R.string.home_account)) }, onClick = {}, enabled = false)
+                            DropdownMenuItem(text = { Text(stringResource(R.string.action_settings)) }, onClick = { menuOpen = false; onOpenSettings() })
                         }
                     },
                 )
@@ -101,7 +103,7 @@ fun HomeScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                         ) {
                             Text(
-                                "Plex Gallery ${updateVm.available!!.versionName} is available. Tap to update.",
+                                stringResource(R.string.home_update_banner, updateVm.available!!.versionName),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.clip(MaterialTheme.shapes.small),
@@ -117,8 +119,8 @@ fun HomeScreen(
                     NavigationBarItem(
                         selected = tab == t,
                         onClick = { tab = t },
-                        icon = { Icon(if (tab == t) t.filled else t.outlined, contentDescription = t.label) },
-                        label = { Text(t.label) },
+                        icon = { Icon(if (tab == t) t.filled else t.outlined, contentDescription = stringResource(t.label)) },
+                        label = { Text(stringResource(t.label)) },
                     )
                 }
             }

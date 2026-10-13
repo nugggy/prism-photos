@@ -27,8 +27,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.PlexLibrary
 import au.prism.photos.ui.components.ErrorState
 import au.prism.photos.ui.components.LoadingState
@@ -40,6 +43,7 @@ import kotlinx.coroutines.launch
 fun LibraryPickerScreen(onSelected: () -> Unit) {
     val graph = PrismApp.graph
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var libraries by remember { mutableStateOf<List<PlexLibrary>>(emptyList()) }
@@ -48,10 +52,10 @@ fun LibraryPickerScreen(onSelected: () -> Unit) {
         loading = true
         graph.media.libraries()
             .onSuccess { libraries = it; loading = false }
-            .onFailure { error = it.message ?: "Could not load libraries"; loading = false }
+            .onFailure { error = it.message ?: context.getString(R.string.servers_load_libraries_failed); loading = false }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Choose a library") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.servers_choose_library)) }) }) { padding ->
         when {
             loading -> LoadingState(Modifier.padding(padding))
             error != null -> ErrorState(error!!, onRetry = {
@@ -60,11 +64,11 @@ fun LibraryPickerScreen(onSelected: () -> Unit) {
                 scope.launch {
                     graph.media.libraries()
                         .onSuccess { libraries = it; loading = false }
-                        .onFailure { error = it.message ?: "Could not load libraries"; loading = false }
+                        .onFailure { error = it.message ?: context.getString(R.string.servers_load_libraries_failed); loading = false }
                 }
             }, modifier = Modifier.padding(padding))
             libraries.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No photo libraries on this server")
+                Text(stringResource(R.string.servers_no_libraries))
             }
             else -> LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.padding(padding)) {
                 items(libraries, key = { it.key }) { library ->

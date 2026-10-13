@@ -1,5 +1,6 @@
 package au.prism.photos.ui.search
 
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -135,7 +136,7 @@ fun SearchScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
@@ -149,17 +150,17 @@ fun SearchScreen(
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = { Text("Search photos, tags and places") },
+                            placeholder = { Text(stringResource(R.string.search_placeholder)) },
                             singleLine = true,
                             trailingIcon = {
                                 if (query.isNotEmpty()) {
-                                    IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+                                    IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = stringResource(R.string.common_clear)) }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                 )
             }
         },
@@ -169,7 +170,7 @@ fun SearchScreen(
             when {
                 query.isBlank() -> Column(Modifier.fillMaxSize().padding(16.dp)) {
                     if (recents.isNotEmpty()) {
-                        Text("Recent searches", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.search_recent), style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)) {
                             recents.forEach { r ->
                                 AssistChip(onClick = { runSearch(r) }, label = { Text(r) })
@@ -177,24 +178,24 @@ fun SearchScreen(
                         }
                     }
                     if (tagChips.isNotEmpty()) {
-                        Text("Tags", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.search_tags), style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)) {
                             tagChips.forEach { t -> SuggestionChip(onClick = { runSearch(t) }, label = { Text(t) }) }
                         }
                     }
                     if (yearChips.isNotEmpty()) {
-                        Text("Years", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.search_years), style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             yearChips.forEach { y -> SuggestionChip(onClick = { runSearch(y) }, label = { Text(y) }) }
                         }
                     }
                     if (recents.isEmpty() && tagChips.isEmpty() && yearChips.isEmpty()) {
-                        EmptyState("Search your library", "Search by title, tag, place or camera model.")
+                        EmptyState(stringResource(R.string.search_empty_title), stringResource(R.string.search_empty_body))
                     }
                 }
                 searching && results.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
                 searchError != null -> ErrorState(searchError!!, onRetry = { retryNonce++ })
-                results.isEmpty() -> EmptyState("No results for “$query”")
+                results.isEmpty() -> EmptyState(stringResource(R.string.search_no_results, query))
                 else -> SelectableMediaGrid(
                     items = results,
                     columns = 3,
@@ -233,7 +234,7 @@ fun SearchScreen(
             onAdded = { title ->
                 showAddToAlbum = false
                 selection.clear()
-                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.selection_added_to_album, title)) }
             },
         )
     }

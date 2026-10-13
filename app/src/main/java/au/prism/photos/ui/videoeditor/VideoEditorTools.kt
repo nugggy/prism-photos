@@ -38,7 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.Format
 
@@ -62,7 +64,7 @@ fun VideoEditorTabBar(selected: VideoEditorTab, onSelect: (VideoEditorTab) -> Un
                         contentDescription = null,
                     )
                 },
-                label = { Text(tab.label) },
+                label = { Text(stringResource(tab.labelRes)) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = PlexGold,
                     selectedTextColor = PlexGold,
@@ -81,7 +83,7 @@ fun TrimPanel(trimStartMs: Long, trimEndMs: Long, durationMs: Long, onCaptureFra
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(Format.duration(trimStartMs), color = Color.White, style = MaterialTheme.typography.labelLarge)
             Text(
-                "Selected: ${Format.duration((trimEndMs - trimStartMs).coerceAtLeast(0))}",
+                stringResource(R.string.videoeditor_selected, Format.duration((trimEndMs - trimStartMs).coerceAtLeast(0))),
                 color = PlexGold,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -90,7 +92,7 @@ fun TrimPanel(trimStartMs: Long, trimEndMs: Long, durationMs: Long, onCaptureFra
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
             TextButton(onClick = onCaptureFrame) {
                 Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = PlexGold)
-                Text(" Save frame as photo", color = PlexGold)
+                Text(stringResource(R.string.videoeditor_save_frame), color = PlexGold, modifier = Modifier.padding(start = 4.dp))
             }
         }
     }
@@ -105,7 +107,7 @@ fun AudioPanel(muted: Boolean, onMutedChange: (Boolean) -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(if (muted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp, contentDescription = null, tint = Color.White)
-            Text(if (muted) "  Audio muted" else "  Audio on", color = Color.White, modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(if (muted) R.string.videoeditor_audio_muted else R.string.videoeditor_audio_on), color = Color.White, modifier = Modifier.padding(start = 16.dp))
         }
         Switch(
             checked = !muted,
@@ -126,17 +128,17 @@ fun TransformPanel(
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            IconButtonWithLabel(icon = Icons.Filled.RotateRight, label = "Rotate", active = state.rotationDegrees != 0, onClick = onRotate)
-            IconButtonWithLabel(icon = Icons.Filled.Flip, label = "Flip H", active = state.flipHorizontal, onClick = onFlipHorizontal)
-            IconButtonWithLabel(icon = Icons.Filled.Flip, label = "Flip V", active = state.flipVertical, onClick = onFlipVertical, rotateIcon = true)
+            IconButtonWithLabel(icon = Icons.Filled.RotateRight, label = stringResource(R.string.videoeditor_rotate), active = state.rotationDegrees != 0, onClick = onRotate)
+            IconButtonWithLabel(icon = Icons.Filled.Flip, label = stringResource(R.string.videoeditor_flip_horizontal), active = state.flipHorizontal, onClick = onFlipHorizontal)
+            IconButtonWithLabel(icon = Icons.Filled.Flip, label = stringResource(R.string.videoeditor_flip_vertical), active = state.flipVertical, onClick = onFlipVertical, rotateIcon = true)
         }
-        Text("Resolution", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+        Text(stringResource(R.string.videoeditor_resolution), color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             VideoResolution.entries.forEach { res ->
                 FilterChip(
                     selected = state.resolution == res,
                     onClick = { onResolution(res) },
-                    label = { Text(res.label) },
+                    label = { Text(stringResource(res.labelRes)) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = PlexGold,
                         selectedLabelColor = Color.Black,
@@ -172,7 +174,7 @@ private fun IconButtonWithLabel(
 @Composable
 fun SpeedPanel(speed: Float, onSpeedChange: (Float) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
-        Text("Speed: ${"%.2f".format(speed)}x", color = Color.White, style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.videoeditor_speed_value, "%.2f".format(speed)), color = Color.White, style = MaterialTheme.typography.labelLarge)
         Slider(
             value = speed,
             onValueChange = onSpeedChange,
@@ -182,7 +184,7 @@ fun SpeedPanel(speed: Float, onSpeedChange: (Float) -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf(0.25f, 0.5f, 1f, 1.5f, 2f, 4f).forEach { preset ->
                 TextButton(onClick = { onSpeedChange(preset) }) {
-                    Text("${preset}x", color = if (speed == preset) PlexGold else Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.videoeditor_speed_preset, preset.toString()), color = if (speed == preset) PlexGold else Color.White.copy(alpha = 0.7f))
                 }
             }
         }
@@ -200,13 +202,13 @@ fun ColourPanel(
     onReset: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
-        ColourSlider("Brightness", state.brightness, -1f..1f, onBrightness)
-        ColourSlider("Contrast", state.contrast, -1f..1f, onContrast)
-        ColourSlider("Saturation", state.saturation, -100f..100f, onSaturation)
-        ColourSlider("Hue", state.hue, -180f..180f, onHue)
-        ColourSlider("Warmth", state.warmth, -1f..1f, onWarmth)
+        ColourSlider(stringResource(R.string.videoeditor_brightness), state.brightness, -1f..1f, onBrightness)
+        ColourSlider(stringResource(R.string.videoeditor_contrast), state.contrast, -1f..1f, onContrast)
+        ColourSlider(stringResource(R.string.videoeditor_saturation), state.saturation, -100f..100f, onSaturation)
+        ColourSlider(stringResource(R.string.videoeditor_hue), state.hue, -180f..180f, onHue)
+        ColourSlider(stringResource(R.string.videoeditor_warmth), state.warmth, -1f..1f, onWarmth)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onReset) { Text("Reset colour", color = PlexGold) }
+            TextButton(onClick = onReset) { Text(stringResource(R.string.videoeditor_reset_colour), color = PlexGold) }
         }
     }
 }
@@ -232,6 +234,6 @@ fun LoopToggle(loop: Boolean, onLoopChange: (Boolean) -> Unit) {
             onCheckedChange = onLoopChange,
             colors = CheckboxDefaults.colors(checkedColor = PlexGold),
         )
-        Text("Loop preview", color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.videoeditor_loop_preview), color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }

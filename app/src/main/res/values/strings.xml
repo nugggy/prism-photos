@@ -5,6 +5,18 @@
     <string name="action_retry">Try again</string>
     <string name="action_close">Close</string>
     <string name="action_undo">Undo</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_done">Done</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_create">Create</string>
+    <string name="action_discard">Discard</string>
+    <string name="action_keep_editing">Keep editing</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_share">Share</string>
+    <string name="action_back">Back</string>
 
     <!-- Lock gate -->
     <string name="lock_prompt_title">Unlock Plex Gallery</string>
@@ -12,6 +24,20 @@
     <string name="lock_prompt_credential">Confirm your PIN, pattern or password</string>
     <string name="lock_no_screen_lock">Locked items need a screen lock on this device. Set up a PIN, pattern, password or fingerprint in your security settings, then come back.</string>
     <string name="lock_open_security_settings">Open security settings</string>
+    <string name="lock_title">Locked items</string>
+    <string name="lock_subtitle">Unlock with your fingerprint, face or device PIN</string>
+    <string name="lock_unlock">Unlock</string>
+
+    <!-- Share sheet -->
+    <string name="share_title">Share</string>
+    <string name="share_preparing">Preparing</string>
+    <string name="share_copy_link">Copy link</string>
+    <string name="share_more">More</string>
+    <string name="share_link_copied">Link copied</string>
+    <string name="share_messages">Messages</string>
+    <string name="share_prepare_failed">Couldn\'t prepare the files to share</string>
+    <string name="share_open_app_failed">Couldn\'t open that app</string>
+    <string name="share_clip_label">Plex link</string>
 
     <!-- Viewer -->
     <string name="viewer_load_failed">Couldn\'t load these photos</string>
@@ -63,4 +89,167 @@
 
     <!-- Settings -->
     <string name="webdav_insecure_warning">This address uses http over the internet, so your password and photos would travel unencrypted. Use https, or a local network address.</string>
+
+    <!-- Shared screen text -->
+    <string name="common_clear">Clear</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_something_went_wrong">Something went wrong</string>
+    <plurals name="common_item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="delete_confirm_title">
+        <item quantity="one">Delete item?</item>
+        <item quantity="other">Delete %d items?</item>
+    </plurals>
+
+    <!-- Selection bar and selection actions -->
+    <string name="selection_count">%1$d selected</string>
+    <string name="selection_clear">Clear selection</string>
+    <string name="selection_download">Download</string>
+    <string name="selection_favourite">Favourite</string>
+    <string name="selection_add_to_album">Add to album</string>
+    <string name="selection_remove_from_album">Remove from album</string>
+    <string name="selection_lock">Lock</string>
+    <string name="selection_unlock">Unlock</string>
+    <string name="selection_upload">Upload to Plex</string>
+    <string name="selection_added_to_album">Added to %1$s</string>
+    <string name="selection_download_failed">Download failed</string>
+    <plurals name="selection_downloaded">
+        <item quantity="one">Downloaded %d item</item>
+        <item quantity="other">Downloaded %d items</item>
+    </plurals>
+    <plurals name="selection_saved">
+        <item quantity="one">Saved %d item</item>
+        <item quantity="other">Saved %d items</item>
+    </plurals>
+
+    <!-- Home -->
+    <string name="home_tab_photos">Photos</string>
+    <string name="home_tab_albums">Albums</string>
+    <string name="home_tab_favourites">Favourites</string>
+    <string name="home_tab_device">Device</string>
+    <string name="home_tab_locked">Locked</string>
+    <string name="home_search">Search</string>
+    <string name="home_update_available">Update available</string>
+    <string name="home_account">Account</string>
+    <string name="home_update_banner">Plex Gallery %1$s is available. Tap to update.</string>
+
+    <!-- Albums -->
+    <string name="albums_my_albums">My albums</string>
+    <string name="albums_new_album">New album</string>
+    <string name="albums_my_albums_empty">No albums yet. Tap New album to add photos to one.</string>
+    <string name="albums_folders">Folders</string>
+    <string name="albums_smart">Smart</string>
+    <string name="albums_empty_title">No albums yet</string>
+    <string name="albums_empty_body">Create an album below, or albums from Plex will show up here.</string>
+    <string name="albums_title_fallback">Album</string>
+    <string name="albums_title_placeholder">Album title</string>
+    <string name="albums_options">Album options</string>
+    <string name="albums_set_cover">Set cover</string>
+    <string name="albums_accent_colour">Accent colour</string>
+    <string name="albums_sort">Sort</string>
+    <string name="albums_sort_newest">Newest first</string>
+    <string name="albums_sort_oldest">Oldest first</string>
+    <string name="albums_sort_name">Name</string>
+    <string name="albums_lock">Lock album</string>
+    <string name="albums_rename_title">Rename album</string>
+    <string name="albums_detail_empty">Nothing in this album yet</string>
+    <string name="albums_add_to_album">Add to album</string>
+    <string name="albums_add_sheet_empty">No albums yet. Create one above.</string>
+    <string name="albums_load_failed">Could not load albums</string>
+    <string name="albums_add_failed">Couldn\'t add to album</string>
+    <string name="albums_create_failed">Couldn\'t create album</string>
+    <string name="myalbum_empty_body">Add photos from the viewer or a selection.</string>
+    <string name="myalbum_delete">Delete album</string>
+    <string name="myalbum_delete_title">Delete album?</string>
+    <string name="myalbum_delete_body">This removes the album from Plex. The photos in it are not deleted.</string>
+    <string name="myalbum_remove_failed">Couldn\'t remove from album</string>
+    <string name="myalbum_delete_failed">Couldn\'t delete album</string>
+
+    <!-- Favourites and timeline -->
+    <string name="favourites_empty_title">No favourites yet</string>
+    <string name="favourites_empty_body">Items you favourite show up here.</string>
+    <string name="favourites_load_failed">Could not load favourites</string>
+    <string name="timeline_empty_title">No photos yet</string>
+    <string name="timeline_empty_body">Photos and videos from this library will show up here.</string>
+
+    <!-- Device -->
+    <string name="device_all">All</string>
+    <string name="device_bucket_label">%1$s (%2$d)</string>
+    <string name="device_not_backed_up">%1$d not backed up to Plex</string>
+    <string name="device_upload_all">Upload all not yet synced</string>
+    <string name="device_synced">Synced to Plex</string>
+    <string name="device_empty_title">No photos on this device</string>
+    <string name="device_empty_body">Photos and videos from this phone show up here.</string>
+    <string name="device_permission_title">Allow access to your photos</string>
+    <string name="device_permission_body">Plex Gallery needs permission to show the photos and videos already on this phone.</string>
+    <string name="device_permission_allow">Allow access</string>
+    <string name="device_permission_manage">Manage in Settings</string>
+    <string name="device_default_gallery_title">Set Plex Gallery as your default gallery</string>
+    <string name="device_default_gallery_body">Open a photo from any app, pick Plex Gallery, then tap Always.</string>
+    <string name="device_open_settings">Open settings</string>
+
+    <!-- Locked -->
+    <string name="locked_title">Locked</string>
+    <string name="locked_albums">Locked albums</string>
+    <string name="locked_items">Locked photos and videos</string>
+    <string name="locked_unlock_album">Unlock album</string>
+    <string name="locked_empty_title">Nothing locked</string>
+    <string name="locked_empty_body">Lock a photo, video or album from its selection menu and it will show up here.</string>
+
+    <!-- Search screen -->
+    <string name="search_placeholder">Search photos, tags and places</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="search_tags">Tags</string>
+    <string name="search_years">Years</string>
+    <string name="search_empty_title">Search your library</string>
+    <string name="search_empty_body">Search by title, tag, place or camera model.</string>
+    <string name="search_no_results">No results for “%1$s”</string>
+
+    <!-- Server and library pickers -->
+    <string name="servers_choose_server">Choose a server</string>
+    <string name="servers_mode_auto">Auto</string>
+    <string name="servers_mode_lan">Same network</string>
+    <string name="servers_mode_remote">Remote</string>
+    <string name="servers_none">No servers found on this Plex account</string>
+    <string name="servers_connected">Connected · %1$s</string>
+    <string name="servers_checking">Checking connection</string>
+    <string name="servers_owned">Owned</string>
+    <string name="servers_choose_library">Choose a library</string>
+    <string name="servers_no_libraries">No photo libraries on this server</string>
+    <string name="servers_load_libraries_failed">Could not load libraries</string>
+
+    <!-- Sign in -->
+    <string name="signin_tagline">Your Plex photos, done properly</string>
+    <string name="signin_waiting">Waiting for you to finish signing in</string>
+    <string name="signin_signing_in">Signing in</string>
+    <string name="signin_connect_manually">Connect manually</string>
+    <string name="signin_server_url">Server URL</string>
+    <string name="signin_server_url_placeholder" translatable="false">http://192.168.1.20:32400</string>
+    <string name="signin_token">Plex token</string>
+    <string name="signin_connect">Connect</string>
+    <string name="signin_with_plex">Sign in with Plex</string>
+
+    <!-- App update -->
+    <string name="update_title">Update available – %1$s</string>
+    <string name="update_install">Download and install</string>
+    <string name="update_not_now">Not now</string>
+
+    <!-- Upload to Plex -->
+    <string name="upload_title">Upload to Plex</string>
+    <plurals name="upload_item_count_size">
+        <item quantity="one">%1$d item · %2$s</item>
+        <item quantity="other">%1$d items · %2$s</item>
+    </plurals>
+    <string name="upload_no_destination">No sync destination set up</string>
+    <string name="upload_no_destination_body">Open Settings and fill in \"Sync to Plex\" with your server\'s SMB share or WebDAV address before uploading.</string>
+    <string name="upload_go_to_settings">Go to Settings</string>
+    <string name="upload_destination_folder">Destination folder</string>
+    <string name="upload_default_folder">Default: %1$s</string>
+    <string name="upload_new_folder">New folder</string>
+    <string name="upload_progress">Uploading %1$d of %2$d  ·  %3$s</string>
+    <string name="upload_overall">%1$d%% overall</string>
+    <string name="upload_report">Uploaded %1$d, already synced %2$d, failed %3$d</string>
+    <string name="upload_start">Upload</string>
 </resources>

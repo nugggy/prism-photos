@@ -2,12 +2,14 @@ package au.prism.photos.ui.videoeditor
 
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.annotation.StringRes
+import au.prism.photos.R
 
 /** Output resolution choice for export. [KEEP] leaves the source resolution untouched. */
-enum class VideoResolution(val label: String) {
-    KEEP("Original"),
-    R1080("1080p"),
-    R720("720p"),
+enum class VideoResolution(@StringRes val labelRes: Int) {
+    KEEP(R.string.videoeditor_resolution_original),
+    R1080(R.string.videoeditor_resolution_1080),
+    R720(R.string.videoeditor_resolution_720),
 }
 
 /** Every adjustable property of the clip. Compared against [initial] to detect unsaved changes. */
@@ -28,13 +30,13 @@ data class VideoEditState(
     val loopPreview: Boolean = true,
 )
 
-enum class VideoEditorTab(val label: String) {
-    TRIM("Trim"),
-    AUDIO("Audio"),
-    TRANSFORM("Transform"),
-    SPEED("Speed"),
-    COLOUR("Colour"),
-    EXPORT("Export"),
+enum class VideoEditorTab(@StringRes val labelRes: Int) {
+    TRIM(R.string.videoeditor_tab_trim),
+    AUDIO(R.string.videoeditor_tab_audio),
+    TRANSFORM(R.string.videoeditor_tab_transform),
+    SPEED(R.string.videoeditor_tab_speed),
+    COLOUR(R.string.videoeditor_tab_colour),
+    EXPORT(R.string.videoeditor_tab_export),
 }
 
 /** Loading the source clip: for Plex items this covers the download to cache first. */

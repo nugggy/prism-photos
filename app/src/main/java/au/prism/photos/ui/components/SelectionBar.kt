@@ -19,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
 
 /** Top bar shown while a grid is in multi-select mode. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,33 +40,33 @@ fun SelectionTopBar(
     onDelete: (() -> Unit)? = null,
 ) {
     TopAppBar(
-        title = { Text("$count selected") },
+        title = { Text(stringResource(R.string.selection_count, count)) },
         navigationIcon = {
-            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Clear selection") }
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.selection_clear)) }
         },
         actions = {
-            IconButton(onClick = onShare) { Icon(Icons.Filled.Share, contentDescription = "Share") }
-            IconButton(onClick = onDownload) { Icon(Icons.Filled.Download, contentDescription = "Download") }
+            IconButton(onClick = onShare) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share)) }
+            IconButton(onClick = onDownload) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.selection_download)) }
             if (onToggleFavourite != null) {
                 IconButton(onClick = onToggleFavourite) {
-                    Icon(if (allFavourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, contentDescription = "Favourite")
+                    Icon(if (allFavourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, contentDescription = stringResource(R.string.selection_favourite))
                 }
             }
             if (onAddToAlbum != null) {
-                IconButton(onClick = onAddToAlbum) { Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to album") }
+                IconButton(onClick = onAddToAlbum) { Icon(Icons.Filled.PlaylistAdd, contentDescription = stringResource(R.string.selection_add_to_album)) }
             }
             if (onRemoveFromAlbum != null) {
-                IconButton(onClick = onRemoveFromAlbum) { Icon(Icons.Filled.PlaylistRemove, contentDescription = "Remove from album") }
+                IconButton(onClick = onRemoveFromAlbum) { Icon(Icons.Filled.PlaylistRemove, contentDescription = stringResource(R.string.selection_remove_from_album)) }
             }
             if (onLock != null) {
-                IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, contentDescription = "Lock") }
+                IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, contentDescription = stringResource(R.string.selection_lock)) }
             }
             if (onUpload != null) {
-                IconButton(onClick = onUpload) { Icon(Icons.Filled.CloudUpload, contentDescription = "Upload to Plex") }
+                IconButton(onClick = onUpload) { Icon(Icons.Filled.CloudUpload, contentDescription = stringResource(R.string.selection_upload)) }
             }
-            IconButton(onClick = onSelectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Select all") }
+            IconButton(onClick = onSelectAll) { Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.action_select_all)) }
             if (onDelete != null) {
-                IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+                IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete)) }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(),

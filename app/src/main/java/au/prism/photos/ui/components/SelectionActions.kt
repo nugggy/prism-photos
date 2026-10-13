@@ -2,6 +2,7 @@ package au.prism.photos.ui.components
 
 import android.content.res.Resources
 import androidx.activity.compose.BackHandler
+import androidx.annotation.PluralsRes
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,6 +70,12 @@ class SelectionActions internal constructor(
             MediaSelectionOps.offerUndo(snackbar, message, resources.getString(R.string.action_undo), action, onChanged)
         }
     }
+}
+
+/** Snackbar text after downloading a selection: "Downloaded 3 items" (or [success] wording), or "Download failed". */
+fun downloadResultMessage(resources: Resources, result: Result<Int>, @PluralsRes success: Int = R.plurals.selection_downloaded): String {
+    val count = result.getOrNull() ?: return resources.getString(R.string.selection_download_failed)
+    return resources.getQuantityString(success, count, count)
 }
 
 @Composable

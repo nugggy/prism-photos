@@ -17,6 +17,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.data.Diagnostics
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
@@ -95,8 +96,14 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     private fun foregroundInfo(done: Int, total: Int, name: String, fraction: Float = 0f): ForegroundInfo {
         ensureChannel()
         val notification = NotificationCompat.Builder(applicationContext, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Syncing to Plex")
-            .setContentText(if (total > 0) "$done of $total  ·  $name" else "Preparing…")
+            .setContentTitle(applicationContext.getString(R.string.sync_notification_title))
+            .setContentText(
+                if (total > 0) {
+                    applicationContext.getString(R.string.sync_notification_progress, done, total, name)
+                } else {
+                    applicationContext.getString(R.string.sync_notification_preparing)
+                },
+            )
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setOngoing(true)
             .setProgress(100, (fraction * 100).toInt().coerceIn(0, 100), total == 0)
@@ -113,8 +120,12 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val manager = applicationContext.getSystemService(NotificationManager::class.java) ?: return
         if (manager.getNotificationChannel(NOTIFICATION_CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(NOTIFICATION_CHANNEL_ID, "Sync", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Progress while photos and videos are backed up to Plex"
+            NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                applicationContext.getString(R.string.sync_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = applicationContext.getString(R.string.sync_channel_description)
             },
         )
     }

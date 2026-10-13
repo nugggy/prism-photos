@@ -1,5 +1,8 @@
 package au.prism.photos.ui.albums
 
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Box
@@ -87,7 +90,7 @@ fun MyAlbumDetailScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
@@ -98,7 +101,7 @@ fun MyAlbumDetailScreen(
                                 val result = vm.removeFromAlbum(ids)
                                 selection.clear()
                                 if (result.isFailure) {
-                                    snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: "Couldn't remove from album")
+                                    snackbarHostState.showSnackbar(result.exceptionOrNull()?.message ?: context.getString(R.string.myalbum_remove_failed))
                                 }
                             }
                         }
@@ -106,22 +109,22 @@ fun MyAlbumDetailScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text(vm.album?.title ?: "Album") },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+                    title = { Text(vm.album?.title ?: stringResource(R.string.albums_title_fallback)) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                     actions = {
-                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Album options") }
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.albums_options)) }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             if (!readOnly) {
-                                DropdownMenuItem(text = { Text("Rename") }, onClick = { menuOpen = false; renameOpen = true })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = { menuOpen = false; renameOpen = true })
                             }
                             DropdownMenuItem(
-                                text = { Text("Select all") },
+                                text = { Text(stringResource(R.string.action_select_all)) },
                                 leadingIcon = { Icon(Icons.Filled.SelectAll, contentDescription = null) },
                                 onClick = { menuOpen = false; selection.selectAll(vm.items.map { it.id }) },
                             )
                             if (!readOnly) {
                                 DropdownMenuItem(
-                                    text = { Text("Delete album") },
+                                    text = { Text(stringResource(R.string.myalbum_delete)) },
                                     leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                                     onClick = { menuOpen = false; showDeleteAlbumConfirm = true },
                                 )
@@ -137,7 +140,7 @@ fun MyAlbumDetailScreen(
             when {
                 vm.loading -> LoadingState()
                 vm.error != null -> ErrorState(vm.error!!, onRetry = { vm.load() })
-                vm.items.isEmpty() -> EmptyState("Nothing in this album yet", "Add photos from the viewer or a selection.")
+                vm.items.isEmpty() -> EmptyState(stringResource(R.string.albums_detail_empty), stringResource(R.string.myalbum_empty_body))
                 else -> SelectableMediaGrid(
                     items = vm.items,
                     columns = 3,
@@ -154,29 +157,29 @@ fun MyAlbumDetailScreen(
         var text by remember { mutableStateOf(vm.album?.title.orEmpty()) }
         AlertDialog(
             onDismissRequest = { renameOpen = false },
-            title = { Text("Rename album") },
+            title = { Text(stringResource(R.string.albums_rename_title)) },
             text = { OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true) },
-            confirmButton = { TextButton(onClick = { vm.rename(text.trim()); renameOpen = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { vm.rename(text.trim()); renameOpen = false }) { Text(stringResource(R.string.action_save)) } },
+            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
     if (showDeleteAlbumConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteAlbumConfirm = false },
-            title = { Text("Delete album?") },
-            text = { Text("This removes the album from Plex. The photos in it are not deleted.") },
+            title = { Text(stringResource(R.string.myalbum_delete_title)) },
+            text = { Text(stringResource(R.string.myalbum_delete_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteAlbumConfirm = false
                     scope.launch {
                         vm.deleteAlbum()
                             .onSuccess { onBack() }
-                            .onFailure { snackbarHostState.showSnackbar(it.message ?: "Couldn't delete album") }
+                            .onFailure { snackbarHostState.showSnackbar(it.message ?: context.getString(R.string.myalbum_delete_failed)) }
                     }
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.action_delete)) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteAlbumConfirm = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showDeleteAlbumConfirm = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 

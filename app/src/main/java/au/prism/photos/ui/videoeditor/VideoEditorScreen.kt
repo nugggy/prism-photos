@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
@@ -69,6 +70,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import au.prism.photos.BuildConfig
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.Format
 import kotlinx.coroutines.delay
@@ -130,8 +132,8 @@ fun VideoEditorScreen(
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize().background(Color.Black)) {
             when (val phase = sourcePhase) {
-                is SourcePhase.Preparing -> LoadingState("Preparing")
-                is SourcePhase.Downloading -> LoadingState("Downloading clip ${(phase.fraction * 100).toInt()}%", phase.fraction)
+                is SourcePhase.Preparing -> LoadingState(stringResource(R.string.videoeditor_preparing))
+                is SourcePhase.Downloading -> LoadingState(stringResource(R.string.videoeditor_downloading, (phase.fraction * 100).toInt()), phase.fraction)
                 is SourcePhase.Error -> ErrorState(phase.message, onCancel)
                 is SourcePhase.Ready -> {
                     Column(Modifier.fillMaxSize()) {
@@ -223,13 +225,13 @@ fun VideoEditorScreen(
     if (showDiscardConfirm) {
         AlertDialog(
             onDismissRequest = { showDiscardConfirm = false },
-            title = { Text("Discard changes?") },
-            text = { Text("Your edits haven't been saved.") },
+            title = { Text(stringResource(R.string.videoeditor_discard_title)) },
+            text = { Text(stringResource(R.string.videoeditor_discard_body)) },
             confirmButton = {
-                TextButton(onClick = { showDiscardConfirm = false; onCancel() }) { Text("Discard") }
+                TextButton(onClick = { showDiscardConfirm = false; onCancel() }) { Text(stringResource(R.string.action_discard)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDiscardConfirm = false }) { Text("Keep editing") }
+                TextButton(onClick = { showDiscardConfirm = false }) { Text(stringResource(R.string.action_keep_editing)) }
             },
         )
     }
@@ -239,10 +241,10 @@ fun VideoEditorScreen(
 @Composable
 private fun VideoEditorTopBar(onClose: () -> Unit) {
     TopAppBar(
-        title = { Text("Edit video") },
+        title = { Text(stringResource(R.string.videoeditor_title)) },
         navigationIcon = {
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = "Cancel")
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_cancel))
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black, titleContentColor = Color.White),
@@ -268,7 +270,7 @@ private fun LoadingState(label: String, fraction: Float? = null) {
 private fun ErrorState(message: String, onCancel: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text(message, color = Color.White, style = MaterialTheme.typography.bodyLarge)
-        TextButton(onClick = onCancel, modifier = Modifier.padding(top = 16.dp)) { Text("Close", color = PlexGold) }
+        TextButton(onClick = onCancel, modifier = Modifier.padding(top = 16.dp)) { Text(stringResource(R.string.action_close), color = PlexGold) }
     }
 }
 
@@ -290,29 +292,29 @@ private fun ExportPanel(
                     onClick = onExport,
                     colors = ButtonDefaults.buttonColors(containerColor = PlexGold, contentColor = Color.Black),
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text("Export to Plex Gallery") }
+                ) { Text(stringResource(R.string.videoeditor_export)) }
             }
             is ExportPhase.Exporting -> {
-                Text("Exporting ${(exportPhase.fraction * 100).toInt()}%", color = Color.White)
+                Text(stringResource(R.string.videoeditor_exporting, (exportPhase.fraction * 100).toInt()), color = Color.White)
                 LinearProgressIndicator(
                     progress = { exportPhase.fraction },
                     color = PlexGold,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 )
-                TextButton(onClick = onCancelExport) { Text("Cancel", color = Color.White.copy(alpha = 0.8f)) }
+                TextButton(onClick = onCancelExport) { Text(stringResource(R.string.action_cancel), color = Color.White.copy(alpha = 0.8f)) }
             }
             is ExportPhase.Done -> {
-                Text("Saved to Movies/Plex Gallery", color = PlexGold)
+                Text(stringResource(R.string.videoeditor_export_saved), color = PlexGold)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextButton(onClick = { onShare(exportPhase.shareFile) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.Share, contentDescription = null, tint = Color.White)
-                        Text(" Share", color = Color.White)
+                        Text(stringResource(R.string.action_share), color = Color.White, modifier = Modifier.padding(start = 4.dp))
                     }
                     Button(
                         onClick = { onDone(exportPhase.uri) },
                         colors = ButtonDefaults.buttonColors(containerColor = PlexGold, contentColor = Color.Black),
                         modifier = Modifier.weight(1f),
-                    ) { Text("Done") }
+                    ) { Text(stringResource(R.string.action_done)) }
                 }
             }
             is ExportPhase.Failed -> {
@@ -321,7 +323,7 @@ private fun ExportPanel(
                     onClick = onExport,
                     colors = ButtonDefaults.buttonColors(containerColor = PlexGold, contentColor = Color.Black),
                     modifier = Modifier.padding(top = 8.dp),
-                ) { Text("Retry") }
+                ) { Text(stringResource(R.string.videoeditor_retry)) }
             }
         }
     }
@@ -335,7 +337,7 @@ private fun shareExportedFile(context: android.content.Context, file: java.io.Fi
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "Share video"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.videoeditor_share_video)))
 }
 
 /**
@@ -472,7 +474,7 @@ private fun EditorPreviewPlayer(
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (isPlaying) "Pause" else "Play",
+                contentDescription = stringResource(if (isPlaying) R.string.videoeditor_pause else R.string.videoeditor_play),
                 tint = Color.White,
                 modifier = Modifier.size(36.dp),
             )

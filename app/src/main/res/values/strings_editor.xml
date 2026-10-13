@@ -1,18 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ed_undo">Undo</string>
-    <string name="ed_redo">Redo</string>
-    <string name="ed_compare">Compare with original</string>
-    <string name="ed_revert">Revert to original</string>
-    <string name="ed_revert_title">Revert to original?</string>
-    <string name="ed_revert_body">This clears every adjustment, filter, crop, markup and frame you\'ve applied.</string>
-    <string name="ed_tab_adjust">Adjust</string>
-    <string name="ed_tab_filters">Filters</string>
-    <string name="ed_tab_crop">Crop</string>
-    <string name="ed_tab_markup">Markup</string>
-    <string name="ed_tab_frames">Frames</string>
-    <string name="ed_tab_export">Export</string>
-    <string name="ed_auto_enhance">Auto enhance</string>
-    <string name="ed_save_copy">Save copy</string>
-    <string name="ed_share">Share</string>
+    <!-- Photo editor: top bar and dialogs -->
+    <string name="editor_title">Edit</string>
+    <string name="editor_redo">Redo</string>
+    <string name="editor_compare">Compare with original</string>
+    <string name="editor_revert">Revert to original</string>
+    <string name="editor_revert_title">Revert to original?</string>
+    <string name="editor_revert_body">This clears every adjustment, filter, crop, markup and frame you\'ve applied.</string>
+    <string name="editor_revert_confirm">Revert</string>
+    <string name="editor_discard_title">Discard changes?</string>
+    <string name="editor_discard_body">Your edits haven\'t been saved.</string>
+    <string name="editor_share_photo">Share photo</string>
+    <string name="editor_load_failed">Couldn\'t load the image</string>
+    <string name="editor_save_failed">Couldn\'t save the image</string>
+
+    <!-- Tabs -->
+    <string name="editor_tab_adjust">Adjust</string>
+    <string name="editor_tab_filters">Filters</string>
+    <string name="editor_tab_crop">Crop</string>
+    <string name="editor_tab_markup">Markup</string>
+    <string name="editor_tab_frames">Frames</string>
+    <string name="editor_tab_export">Export</string>
+
+    <!-- Adjust -->
+    <string name="editor_auto_enhance">Auto enhance</string>
+    <string name="editor_adjust_brightness">Brightness</string>
+    <string name="editor_adjust_exposure">Exposure</string>
+    <string name="editor_adjust_contrast">Contrast</string>
+    <string name="editor_adjust_highlights">Highlights</string>
+    <string name="editor_adjust_shadows">Shadows</string>
+    <string name="editor_adjust_whites">Whites</string>
+    <string name="editor_adjust_blacks">Blacks</string>
+    <string name="editor_adjust_saturation">Saturation</string>
+    <string name="editor_adjust_vibrance">Vibrance</string>
+    <string name="editor_adjust_warmth">Warmth</string>
+    <string name="editor_adjust_tint">Tint</string>
+    <string name="editor_adjust_hue_shift">Hue shift</string>
+    <string name="editor_adjust_fade">Fade</string>
+    <string name="editor_adjust_dehaze">Dehaze</string>
+    <string name="editor_adjust_sharpness">Sharpness</string>
+    <string name="editor_adjust_clarity">Clarity</string>
+    <string name="editor_adjust_blur">Blur (soften)</string>
+    <string name="editor_adjust_vignette_strength">Vignette strength</string>
+    <string name="editor_adjust_vignette_softness">Vignette softness</string>
+    <string name="editor_adjust_grain">Grain</string>
+
+    <!-- Crop -->
+    <string name="editor_crop_free">Free</string>
+    <string name="editor_crop_original">Original</string>
+    <string name="editor_rotate_left">Rotate left</string>
+    <string name="editor_rotate_right">Rotate right</string>
+    <string name="editor_flip_horizontal">Flip horizontal</string>
+    <string name="editor_flip_vertical">Flip vertical</string>
+    <string name="editor_straighten">Straighten</string>
+
+    <!-- Filters -->
+    <string name="editor_filter_strength">Strength</string>
+    <string name="editor_filter_original">Original</string>
+    <string name="editor_filter_vivid">Vivid</string>
+    <string name="editor_filter_warm">Warm</string>
+    <string name="editor_filter_cool">Cool</string>
+    <string name="editor_filter_mono">Mono</string>
+    <string name="editor_filter_silver">Silver</string>
+    <string name="editor_filter_sepia">Sepia</string>
+    <string name="editor_filter_fade">Fade</string>
+    <string name="editor_filter_noir">Noir</string>
+    <string name="editor_filter_matte">Matte</string>
+    <string name="editor_filter_film">Film</string>
+    <string name="editor_filter_golden">Golden</string>
+    <string name="editor_filter_teal_orange">Teal and orange</string>
+    <string name="editor_filter_cinematic">Cinematic</string>
+    <string name="editor_filter_pastel">Pastel</string>
+    <string name="editor_filter_high_key">High key</string>
+    <string name="editor_filter_low_key">Low key</string>
+    <string name="editor_filter_vintage">Vintage</string>
+
+    <!-- Markup -->
+    <string name="editor_markup_tool_none">None</string>
+    <string name="editor_markup_tool_pen">Pen</string>
+    <string name="editor_markup_tool_highlighter">Highlighter</string>
+    <string name="editor_markup_tool_arrow">Arrow</string>
+    <string name="editor_markup_tool_rectangle">Rectangle</string>
+    <string name="editor_markup_tool_ellipse">Ellipse</string>
+    <string name="editor_markup_tool_text">Text</string>
+    <string name="editor_markup_tool_sticker">Sticker</string>
+    <string name="editor_markup_tool_blur">Blur/pixelate</string>
+    <string name="editor_markup_tool_eraser">Eraser</string>
+    <string name="editor_markup_brush_size">Brush size</string>
+    <string name="editor_markup_size">Size</string>
+    <string name="editor_markup_highlighter_opacity">Highlighter opacity</string>
+    <string name="editor_markup_pixelate">Pixelate (unticked = blur)</string>
+    <string name="editor_markup_clear_all">Clear all markup</string>
+    <string name="editor_markup_add_sticker">Add a sticker</string>
+    <string name="editor_markup_add_text">Add text</string>
+    <string name="editor_markup_caption_placeholder">Your caption</string>
+    <string name="editor_markup_font_size">Font size</string>
+    <string name="editor_markup_background_pill">Background pill</string>
+    <string name="editor_markup_add">Add</string>
+
+    <!-- Frames -->
+    <string name="editor_frame_border_thickness">Border thickness</string>
+    <string name="editor_frame_border_colour">Border colour</string>
+    <string name="editor_frame_rounded_corners">Rounded corners</string>
+    <string name="editor_frame_polaroid">Polaroid style</string>
+    <string name="editor_frame_date_stamp">Date stamp</string>
+    <string name="editor_frame_date_stamp_unavailable">Date stamp (unavailable)</string>
+    <string name="editor_frame_watermark_text">Watermark text</string>
+    <string name="editor_frame_watermark_placeholder">e.g. Plex Gallery</string>
+    <string name="editor_frame_apply_watermark">Apply watermark</string>
+
+    <!-- Export -->
+    <string name="editor_looks">Looks</string>
+    <string name="editor_save_preset">Save preset</string>
+    <string name="editor_copy_edits">Copy edits</string>
+    <string name="editor_paste_edits">Paste edits</string>
+    <string name="editor_delete_preset">Delete preset</string>
+    <string name="editor_preset_name">Preset name</string>
+    <string name="editor_preset_default_name">Preset %1$d</string>
+    <string name="editor_format">Format</string>
+    <string name="editor_quality">Quality</string>
+    <string name="editor_export_size">Size</string>
+    <string name="editor_export_size_original">Original</string>
+    <string name="editor_export_size_px">%1$dpx</string>
+    <string name="editor_save_copy">Save copy</string>
 </resources>

@@ -84,8 +84,9 @@ fun ViewerScreen(
     onClose: () -> Unit,
     onEdit: (itemId: String) -> Unit,
     onEditVideo: ((itemId: String) -> Unit)? = null,
+    showLocked: Boolean = false,
 ) {
-    val vm: ViewerViewModel = viewModel(factory = ViewerViewModel.Factory(source))
+    val vm: ViewerViewModel = viewModel(factory = ViewerViewModel.Factory(source, showLocked))
     val items by vm.items.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val loadError by vm.loadError.collectAsStateWithLifecycle()
@@ -99,6 +100,8 @@ fun ViewerScreen(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val deleteFailedMessage = stringResource(R.string.viewer_delete_failed)
+    val saveFailedMessage = stringResource(R.string.viewer_save_failed)
 
     // Several paths can ask to close (back, drag down, the list emptying after a delete). Only the
     // first one pops, so a double call can never pop the screen underneath as well.
@@ -209,7 +212,7 @@ fun ViewerScreen(
         if (result.resultCode == Activity.RESULT_OK && item != null) {
             scope.launch {
                 vm.delete(item)
-                    .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't delete") }
+                    .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: deleteFailedMessage) }
             }
         }
     }
@@ -225,7 +228,7 @@ fun ViewerScreen(
                             IntentSenderRequest.Builder(recoverable.userAction.actionIntent.intentSender).build(),
                         )
                     } else {
-                        snackbarHostState.showSnackbar(e.message ?: "Couldn't delete")
+                        snackbarHostState.showSnackbar(e.message ?: deleteFailedMessage)
                     }
                 }
         }
@@ -247,7 +250,7 @@ fun ViewerScreen(
                     onTags = { infoItem = currentItem },
                     onSetAlbumCover = {
                         vm.setAlbumCover(currentItem)
-                        scope.launch { snackbarHostState.showSnackbar("Set as album cover") }
+                        scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.viewer_set_album_cover)) }
                     },
                     onAddToAlbum = { addToAlbumItem = currentItem },
                     onWallpaper = { wallpaperItem = currentItem },
@@ -291,8 +294,8 @@ fun ViewerScreen(
                     onDownload = {
                         scope.launch {
                             MediaActions.download(context, listOf(currentItem))
-                                .onSuccess { count -> snackbarHostState.showSnackbar(if (count > 0) "Saved to Downloads" else "Couldn't save") }
-                                .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't save") }
+                                .onSuccess { count -> snackbarHostState.showSnackbar(if (count > 0) context.getString(R.string.viewer_saved_to_downloads) else saveFailedMessage) }
+                                .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: saveFailedMessage) }
                         }
                     },
                     onInfo = { infoItem = currentItem },
@@ -356,8 +359,10 @@ fun ViewerScreen(
                     progress = { slideshowProgress },
                     color = PlexGold,
                     trackColor = Color.White.copy(alpha = 0.2f),
+                    // The photo stays full bleed behind the bars; only this indicator moves below the top bar.
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .padding(top = padding.calculateTopPadding())
                         .fillMaxWidth(),
                 )
             }
@@ -401,7 +406,7 @@ fun ViewerScreen(
                 } else {
                     scope.launch {
                         vm.deleteFromBoth(target, key)
-                            .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't delete from Plex") }
+                            .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: context.getString(R.string.viewer_delete_from_plex_failed)) }
                     }
                 }
             },
@@ -415,8 +420,8 @@ fun ViewerScreen(
                 wallpaperItem = null
                 scope.launch {
                     MediaActions.setWallpaperFlags(context, target, home, lock)
-                        .onSuccess { snackbarHostState.showSnackbar("Wallpaper set") }
-                        .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: "Couldn't set wallpaper") }
+                        .onSuccess { snackbarHostState.showSnackbar(context.getString(R.string.viewer_wallpaper_set)) }
+                        .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: context.getString(R.string.viewer_wallpaper_failed)) }
                 }
             },
         )
@@ -427,7 +432,7 @@ fun ViewerScreen(
             onDismiss = { addToAlbumItem = null },
             onAdded = { title ->
                 addToAlbumItem = null
-                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.viewer_added_to_album, title)) }
             },
         )
     }

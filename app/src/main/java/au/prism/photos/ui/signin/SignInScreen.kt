@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import au.prism.photos.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -85,10 +86,10 @@ fun SignInScreen(
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text("Plex Gallery", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Your Plex photos, done properly",
+                stringResource(R.string.signin_tagline),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -104,18 +105,18 @@ fun SignInScreen(
                         Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(modifier = Modifier.size(28.dp))
                             Spacer(Modifier.height(16.dp))
-                            Text("Waiting for you to finish signing in", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.signin_waiting), style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.height(8.dp))
                             Text(state.code, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = PlexGold)
                             Spacer(Modifier.height(16.dp))
-                            TextButton(onClick = { vm.cancelWaiting() }) { Text("Cancel") }
+                            TextButton(onClick = { vm.cancelWaiting() }) { Text(stringResource(R.string.action_cancel)) }
                         }
                     }
                 }
                 is SignInUiState.Signing -> {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(8.dp))
-                    Text("Signing in", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.signin_signing_in), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 is SignInUiState.Error -> {
                     Text(state.message, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
@@ -139,7 +140,7 @@ fun SignInScreen(
 
             Spacer(Modifier.height(32.dp))
             TextButton(onClick = { manualExpanded = !manualExpanded }) {
-                Text("Connect manually")
+                Text(stringResource(R.string.signin_connect_manually))
                 Icon(if (manualExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.padding(start = 4.dp))
             }
             AnimatedVisibility(visible = manualExpanded) {
@@ -147,8 +148,8 @@ fun SignInScreen(
                     OutlinedTextField(
                         value = manualUrl,
                         onValueChange = { manualUrl = it },
-                        label = { Text("Server URL") },
-                        placeholder = { Text("http://192.168.1.20:32400") },
+                        label = { Text(stringResource(R.string.signin_server_url)) },
+                        placeholder = { Text(stringResource(R.string.signin_server_url_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -156,7 +157,7 @@ fun SignInScreen(
                     OutlinedTextField(
                         value = manualToken,
                         onValueChange = { manualToken = it },
-                        label = { Text("Plex token") },
+                        label = { Text(stringResource(R.string.signin_token)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -172,7 +173,7 @@ fun SignInScreen(
                             if (vm.manualLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                             } else {
-                                Text("Connect")
+                                Text(stringResource(R.string.signin_connect))
                             }
                         }
                     }
@@ -186,7 +187,7 @@ fun SignInScreen(
 @Composable
 private fun SignInButton(onClick: () -> Unit) {
     Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-        Text("Sign in with Plex", fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.signin_with_plex), fontWeight = FontWeight.SemiBold)
     }
 }
 

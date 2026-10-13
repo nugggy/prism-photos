@@ -1,5 +1,8 @@
 package au.prism.photos.ui.favourites
 
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Box
@@ -62,7 +65,7 @@ fun FavouritesScreen(
             error = null
             graph.media.favourites()
                 .onSuccess { items = it; loading = false }
-                .onFailure { error = it.message ?: "Could not load favourites"; loading = false }
+                .onFailure { error = it.message ?: context.getString(R.string.favourites_load_failed); loading = false }
         }
     }
 
@@ -91,7 +94,7 @@ fun FavouritesScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
@@ -107,7 +110,7 @@ fun FavouritesScreen(
             when {
                 loading && items.isEmpty() -> LoadingState()
                 error != null && items.isEmpty() -> ErrorState(error!!, onRetry = { load() })
-                items.isEmpty() -> EmptyState("No favourites yet", "Items you favourite show up here.")
+                items.isEmpty() -> EmptyState(stringResource(R.string.favourites_empty_title), stringResource(R.string.favourites_empty_body))
                 else -> SelectableMediaGrid(
                     items = items,
                     columns = 3,
@@ -147,7 +150,7 @@ fun FavouritesScreen(
             onAdded = { title ->
                 showAddToAlbum = false
                 selection.clear()
-                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.selection_added_to_album, title)) }
             },
         )
     }

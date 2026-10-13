@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import au.prism.photos.BuildConfig
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import coil3.BitmapImage
 import coil3.ImageLoader
@@ -142,7 +143,7 @@ class EditorViewModel(private val itemId: String) : ViewModel() {
             _previewSourceBitmap.value = downscale(bitmap, PREVIEW_EDGE)
             takenAtMillis = resolveTakenAt()
         } catch (e: Exception) {
-            _error.value = e.message ?: "Couldn't load the image"
+            _error.value = e.message ?: PrismApp.instance.getString(R.string.editor_load_failed)
         } finally {
             _loading.value = false
         }
@@ -447,7 +448,7 @@ class EditorViewModel(private val itemId: String) : ViewModel() {
                 onReady(result)
             } catch (e: Exception) {
                 _saving.value = false
-                _error.value = e.message ?: "Couldn't save the image"
+                _error.value = e.message ?: PrismApp.instance.getString(R.string.editor_save_failed)
             }
         }
     }

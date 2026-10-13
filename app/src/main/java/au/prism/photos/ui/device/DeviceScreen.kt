@@ -1,5 +1,8 @@
 package au.prism.photos.ui.device
 
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import android.Manifest
@@ -191,7 +194,7 @@ fun DeviceScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Saved ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result, R.plurals.selection_saved))
                         }
                     },
                     onToggleFavourite = null,
@@ -214,10 +217,10 @@ fun DeviceScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             item {
-                                FilterChip(selected = selectedBucket == null, onClick = { selectedBucket = null }, label = { Text("All") })
+                                FilterChip(selected = selectedBucket == null, onClick = { selectedBucket = null }, label = { Text(stringResource(R.string.device_all)) })
                             }
                             items(albums, key = { it.bucketId }) { album ->
-                                FilterChip(selected = selectedBucket == album.bucketId, onClick = { selectedBucket = album.bucketId }, label = { Text("${album.name} (${album.count})") })
+                                FilterChip(selected = selectedBucket == album.bucketId, onClick = { selectedBucket = album.bucketId }, label = { Text(stringResource(R.string.device_bucket_label, album.name, album.count)) })
                             }
                         }
                     }
@@ -228,7 +231,7 @@ fun DeviceScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "$notSynced not backed up to Plex",
+                                stringResource(R.string.device_not_backed_up, notSynced),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f),
@@ -236,13 +239,13 @@ fun DeviceScreen(
                             IconButton(onClick = {
                                 uploadUris = items.filterNot { isSynced(it) }.mapNotNull { it.localUri }
                             }) {
-                                Icon(Icons.Filled.CloudUpload, contentDescription = "Upload all not yet synced", tint = PlexGold)
+                                Icon(Icons.Filled.CloudUpload, contentDescription = stringResource(R.string.device_upload_all), tint = PlexGold)
                             }
                         }
                     }
                     DefaultGalleryCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                     if (items.isEmpty()) {
-                        EmptyState("No photos on this device", "Photos and videos from this phone show up here.")
+                        EmptyState(stringResource(R.string.device_empty_title), stringResource(R.string.device_empty_body))
                     } else {
                         DeviceMediaGrid(
                             items = items,
@@ -347,7 +350,7 @@ private fun DeviceMediaCell(
         if (item.favourite && !selectionMode) {
             Icon(
                 Icons.Filled.Favorite,
-                contentDescription = "Favourite",
+                contentDescription = stringResource(R.string.media_cell_favourite),
                 tint = PlexGold,
                 modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(16.dp),
             )
@@ -355,7 +358,7 @@ private fun DeviceMediaCell(
         if (synced && !selectionMode) {
             Icon(
                 Icons.Filled.CloudDone,
-                contentDescription = "Synced to Plex",
+                contentDescription = stringResource(R.string.device_synced),
                 tint = Color.White,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -389,19 +392,19 @@ private fun PermissionRequestCard(onRequest: () -> Unit) {
     val context = LocalContext.current
     Column(Modifier.fillMaxSize().padding(24.dp)) {
         Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = PlexGold)
-        Text("Allow access to your photos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+        Text(stringResource(R.string.device_permission_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         Text(
-            "Plex Gallery needs permission to show the photos and videos already on this phone.",
+            stringResource(R.string.device_permission_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
         )
-        Button(onClick = onRequest) { Text("Allow access") }
+        Button(onClick = onRequest) { Text(stringResource(R.string.device_permission_allow)) }
         androidx.compose.foundation.layout.Spacer(Modifier.padding(4.dp))
         OutlinedButton(onClick = {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
             context.startActivity(intent)
-        }) { Text("Manage in Settings") }
+        }) { Text(stringResource(R.string.device_permission_manage)) }
     }
 }
 
@@ -410,9 +413,9 @@ private fun DefaultGalleryCard(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Card(modifier = modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         Column(Modifier.padding(16.dp)) {
-            Text("Set Plex Gallery as your default gallery", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.device_default_gallery_title), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Open a photo from any app, pick Plex Gallery, then tap Always.",
+                stringResource(R.string.device_default_gallery_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
@@ -421,7 +424,7 @@ private fun DefaultGalleryCard(modifier: Modifier = Modifier) {
                 OutlinedButton(onClick = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                     context.startActivity(intent)
-                }) { Text("Open settings") }
+                }) { Text(stringResource(R.string.device_open_settings)) }
             }
         }
     }

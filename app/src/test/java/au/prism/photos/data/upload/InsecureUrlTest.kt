@@ -32,4 +32,45 @@ class InsecureUrlTest {
     fun `172 outside the private block is public`() {
         assertTrue(isInsecureRemoteUrl("http://172.32.0.1/"))
     }
+
+    @Test
+    fun `scheme matching ignores case and surrounding spaces`() {
+        assertFalse(isInsecureRemoteUrl("HTTPS://203.0.113.5/dav"))
+        assertTrue(isInsecureRemoteUrl("  HTTP://user@mynas.example.org/dav "))
+    }
+
+    @Test
+    fun `loopback, link local, carrier grade NAT and home suffixes are local`() {
+        listOf(
+            "http://127.0.0.1:8080",
+            "http://169.254.1.1/",
+            "http://100.101.102.103/",
+            "http://localhost:8080/",
+            "http://[::1]/",
+            "http://[fe80::1]/",
+            "http://[febf::1]/",
+            "http://[fc00::1]/",
+            "http://nas.lan/",
+            "http://nas.home/",
+            "http://nas.home.arpa/",
+            "http://nas.internal/",
+            "http://nas.localdomain/",
+            "http://nas.local./",
+        ).forEach { assertFalse(it, isInsecureRemoteUrl(it)) }
+    }
+
+    @Test
+    fun `addresses just outside the local ranges are public`() {
+        assertTrue(isInsecureRemoteUrl("http://100.128.0.1/"))
+        assertTrue(isInsecureRemoteUrl("http://169.255.0.1/"))
+        assertTrue(isInsecureRemoteUrl("http://[fec0::1]/"))
+        assertTrue(isInsecureRemoteUrl("http://[2001:db8::1]/"))
+    }
+
+    @Test
+    fun `blank, hostless or non http input is not flagged`() {
+        assertFalse(isInsecureRemoteUrl(""))
+        assertFalse(isInsecureRemoteUrl("http://"))
+        assertFalse(isInsecureRemoteUrl("smb://example.com/share"))
+    }
 }

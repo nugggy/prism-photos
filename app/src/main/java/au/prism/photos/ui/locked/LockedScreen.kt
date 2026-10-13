@@ -1,5 +1,9 @@
 package au.prism.photos.ui.locked
 
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -92,37 +96,37 @@ fun LockedScreen(
                 if (selection.active) {
                     val selectedItems = items.filter { it.id in selection.selected }
                     TopAppBar(
-                        title = { Text("${selection.selected.size} selected") },
-                        navigationIcon = { IconButton(onClick = { selection.clear() }) { Icon(Icons.Filled.Close, contentDescription = "Clear") } },
+                        title = { Text(stringResource(R.string.selection_count, selection.selected.size)) },
+                        navigationIcon = { IconButton(onClick = { selection.clear() }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_clear)) } },
                         actions = {
-                            IconButton(onClick = { shareItems = selectedItems }) { Icon(Icons.Filled.Share, contentDescription = "Share") }
+                            IconButton(onClick = { shareItems = selectedItems }) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share)) }
                             IconButton(onClick = {
                                 scope.launch {
                                     val result = MediaActions.download(context, selectedItems)
-                                    snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                                    snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                                 }
-                            }) { Icon(Icons.Filled.Download, contentDescription = "Download") }
+                            }) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.selection_download)) }
                             IconButton(onClick = { selectionActions.unlock(selection.selected) }) {
-                                Icon(Icons.Filled.LockOpen, contentDescription = "Unlock")
+                                Icon(Icons.Filled.LockOpen, contentDescription = stringResource(R.string.selection_unlock))
                             }
-                            IconButton(onClick = { showAddToAlbum = true }) { Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to album") }
-                            IconButton(onClick = { selection.selectAll(items.map { it.id }) }) { Icon(Icons.Filled.SelectAll, contentDescription = "Select all") }
-                            IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+                            IconButton(onClick = { showAddToAlbum = true }) { Icon(Icons.Filled.PlaylistAdd, contentDescription = stringResource(R.string.selection_add_to_album)) }
+                            IconButton(onClick = { selection.selectAll(items.map { it.id }) }) { Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.action_select_all)) }
+                            IconButton(onClick = { showDeleteConfirm = true }) { Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete)) }
                         },
                     )
                 } else {
-                    TopAppBar(title = { Text("Locked") })
+                    TopAppBar(title = { Text(stringResource(R.string.locked_title)) })
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 if (items.isEmpty() && lockedAlbums.isEmpty()) {
-                    EmptyState("Nothing locked", "Lock a photo, video or album from its selection menu and it will show up here.")
+                    EmptyState(stringResource(R.string.locked_empty_title), stringResource(R.string.locked_empty_body))
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         if (lockedAlbums.isNotEmpty()) {
-                            Text("Locked albums", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp))
+                            Text(stringResource(R.string.locked_albums), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp))
                             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(lockedAlbums, key = { it.id }) { album ->
                                     LockedAlbumChip(album, onClick = { onOpenAlbum(album.id) }, onUnlock = { scope.launch { graph.local.setAlbumLocked(album.id, false) } })
@@ -130,7 +134,7 @@ fun LockedScreen(
                             }
                         }
                         if (items.isNotEmpty()) {
-                            Text("Locked photos and videos", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp))
+                            Text(stringResource(R.string.locked_items), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp))
                             SelectableMediaGrid(
                                 items = items,
                                 columns = 3,
@@ -171,7 +175,7 @@ fun LockedScreen(
                 onAdded = { title ->
                     showAddToAlbum = false
                     selection.clear()
-                    scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.selection_added_to_album, title)) }
                 },
             )
         }
@@ -185,9 +189,9 @@ private fun LockedAlbumChip(album: Album, onClick: () -> Unit, onUnlock: () -> U
             Icon(Icons.Filled.PhotoAlbum, contentDescription = null, tint = PlexGold)
             Column(Modifier.padding(start = 8.dp)) {
                 Text(album.title, style = MaterialTheme.typography.bodyMedium)
-                Text("${album.itemCount} items", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(pluralStringResource(R.plurals.common_item_count, album.itemCount, album.itemCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onUnlock) { Icon(Icons.Filled.LockOpen, contentDescription = "Unlock album") }
+            IconButton(onClick = onUnlock) { Icon(Icons.Filled.LockOpen, contentDescription = stringResource(R.string.locked_unlock_album)) }
         }
     }
 }

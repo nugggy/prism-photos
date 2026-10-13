@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings: account and server -->
+    <string name="settings_section_account">Account</string>
+    <string name="settings_not_signed_in">Not signed in</string>
+    <string name="settings_server">Server</string>
+    <string name="settings_not_connected">Not connected</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_switch_server">Switch server</string>
+    <string name="settings_switch_library">Switch library (%1$s)</string>
+    <string name="settings_library_none">none</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_sign_out_title">Sign out?</string>
+    <string name="settings_sign_out_body">You will need to sign in again to see your photos.</string>
+
+    <!-- Settings: connection -->
+    <string name="settings_section_connection">Connection</string>
+    <string name="settings_connection_auto">Auto</string>
+    <string name="settings_connection_lan">Same network as server</string>
+    <string name="settings_connection_remote">Remote only</string>
+    <string name="settings_manual_lan_address">Manual LAN address</string>
+    <string name="settings_manual_lan_placeholder" translatable="false">http://192.168.1.20:32400</string>
+    <string name="settings_reconnect_now">Reconnect now</string>
+    <string name="settings_reconnected">Reconnected</string>
+    <string name="settings_reconnect_failed">Could not reconnect</string>
+
+    <!-- Settings: appearance -->
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_row">Theme (%1$s)</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_amoled">Amoled</string>
+    <string name="settings_dynamic_colour">Dynamic colour</string>
+    <string name="settings_dynamic_colour_summary">Use Material You colours from your wallpaper</string>
+    <string name="settings_grid_columns">Default grid columns: %1$d</string>
+    <string name="settings_thumb_quality_row">Thumbnail quality (%1$s)</string>
+    <string name="settings_thumb_quality">Thumbnail quality</string>
+    <string name="settings_thumb_quality_low">Low</string>
+    <string name="settings_thumb_quality_medium">Medium</string>
+    <string name="settings_thumb_quality_high">High</string>
+
+    <!-- Settings: playback -->
+    <string name="settings_section_playback">Playback</string>
+    <string name="settings_prefer_transcoding">Prefer transcoding</string>
+    <string name="settings_prefer_transcoding_summary">Use server transcode instead of direct play</string>
+    <string name="settings_slideshow_interval">Slideshow interval: %1$ds</string>
+
+    <!-- Settings: updates -->
+    <string name="settings_section_updates">Updates</string>
+    <string name="settings_update_repo">GitHub repository (owner/name)</string>
+    <string name="settings_auto_check_updates">Automatically check for updates</string>
+    <string name="settings_checking">Checking</string>
+    <string name="settings_check_for_updates">Check for updates</string>
+
+    <!-- Settings: storage, gallery, about -->
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_clear_cache">Clear cache</string>
+    <string name="settings_cache_cleared">Cache cleared</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_section_gallery">Gallery</string>
+    <string name="settings_set_default_gallery">Set as default gallery</string>
+    <string name="settings_section_sync">Sync to Plex</string>
+    <string name="settings_section_diagnostics">Diagnostics</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_about_title">Plex Gallery</string>
+    <string name="settings_about_body">A clean, professional photo library client for Plex Media Server. Plex Gallery is not affiliated with Plex Inc.</string>
+
+    <!-- Settings: diagnostics -->
+    <string name="settings_diagnostics_intro">What the app last did when loading your library. Copy this if something is not showing up.</string>
+    <string name="settings_diagnostics_empty">Nothing logged yet.</string>
+    <string name="settings_crash_intro">The app crashed last time. Copy this and send it along.</string>
+    <string name="settings_copy_crash_report">Copy crash report</string>
+    <string name="settings_dismiss">Dismiss</string>
+    <string name="settings_reload_library">Reload library</string>
+    <string name="settings_copy_diagnostics">Copy diagnostics</string>
+
+    <!-- Settings: sync to Plex -->
+    <string name="sync_destination_type">Destination type</string>
+    <string name="sync_type_smb" translatable="false">SMB</string>
+    <string name="sync_type_webdav" translatable="false">WebDAV</string>
+    <string name="sync_smb_host">Host or IP</string>
+    <string name="sync_smb_share">Share name</string>
+    <string name="sync_smb_path">Path inside the share (optional)</string>
+    <string name="sync_username">Username</string>
+    <string name="sync_password">Password</string>
+    <string name="sync_smb_domain">Domain (optional)</string>
+    <string name="sync_webdav_address">WebDAV address</string>
+    <string name="sync_webdav_placeholder" translatable="false">https://nas.local:5006/photos</string>
+    <string name="sync_testing">Testing…</string>
+    <string name="sync_test_connection">Test connection</string>
+    <string name="sync_test_failed">Failed: %1$s</string>
+    <string name="sync_unknown_error">unknown error</string>
+    <string name="sync_server_folder_path">Library folder path on the server</string>
+    <string name="sync_server_folder_path_help">From Plex: Directory &gt; Location &gt; path. Narrows the rescan to this folder.</string>
+    <string name="sync_sub_folder_pattern">Upload sub folder pattern</string>
+    <string name="sync_sub_folder_pattern_help">Tokens: {device} {yyyy} {MM} {dd}</string>
+    <string name="sync_auto_sync">Automatically sync new photos</string>
+    <string name="sync_auto_sync_summary">Back up new items from the albums below in the background</string>
+    <string name="sync_albums_to_back_up">Albums to back up</string>
+    <string name="sync_album_chip">%1$s (%2$d)</string>
+    <string name="sync_wifi_only">Wi-Fi only</string>
+    <string name="sync_charging_only">Charging only</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_last_sync">Last sync: %1$s  ·  %2$d uploaded, %3$d failed</string>
+    <string name="sync_never_synced">Never synced yet</string>
+
+    <!-- Sync notification -->
+    <string name="sync_notification_title">Syncing to Plex</string>
+    <string name="sync_notification_progress">%1$d of %2$d  ·  %3$s</string>
+    <string name="sync_notification_preparing">Preparing…</string>
+    <string name="sync_channel_name">Sync</string>
+    <string name="sync_channel_description">Progress while photos and videos are backed up to Plex</string>
+</resources>

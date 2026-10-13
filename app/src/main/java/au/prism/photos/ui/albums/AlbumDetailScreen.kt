@@ -1,5 +1,8 @@
 package au.prism.photos.ui.albums
 
+import androidx.compose.ui.res.stringResource
+import au.prism.photos.R
+import au.prism.photos.ui.components.downloadResultMessage
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.background
@@ -95,10 +98,11 @@ fun AlbumDetailScreen(
     onBack: () -> Unit,
     onOpenAlbum: (albumId: String) -> Unit,
     onOpenViewer: (index: Int) -> Unit,
+    showLocked: Boolean = false,
 ) {
     val graph = PrismApp.graph
     val context = LocalContext.current
-    val vm: AlbumDetailViewModel = viewModel(factory = viewModelFactory { initializer { AlbumDetailViewModel(graph, albumId) } })
+    val vm: AlbumDetailViewModel = viewModel(factory = viewModelFactory { initializer { AlbumDetailViewModel(graph, albumId, showLocked) } })
     val scope = rememberCoroutineScope()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -140,7 +144,7 @@ fun AlbumDetailScreen(
                     onDownload = {
                         scope.launch {
                             val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
+                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
@@ -150,17 +154,17 @@ fun AlbumDetailScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text(vm.album?.title ?: "Album", color = accent ?: MaterialTheme.colorScheme.onSurface) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+                    title = { Text(vm.album?.title ?: stringResource(R.string.albums_title_fallback), color = accent ?: MaterialTheme.colorScheme.onSurface) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
                     actions = {
-                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Album options") }
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.albums_options)) }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menuOpen = false; renameOpen = true })
-                            DropdownMenuItem(text = { Text("Set cover") }, onClick = { menuOpen = false; coverPickerOpen = true })
-                            DropdownMenuItem(text = { Text("Accent colour") }, leadingIcon = { Icon(Icons.Filled.Palette, contentDescription = null) }, onClick = { menuOpen = false; accentPickerOpen = true })
-                            DropdownMenuItem(text = { Text("Sort") }, leadingIcon = { Icon(Icons.Filled.Sort, contentDescription = null) }, onClick = { menuOpen = false; sortPickerOpen = true })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = { menuOpen = false; renameOpen = true })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.albums_set_cover)) }, onClick = { menuOpen = false; coverPickerOpen = true })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.albums_accent_colour)) }, leadingIcon = { Icon(Icons.Filled.Palette, contentDescription = null) }, onClick = { menuOpen = false; accentPickerOpen = true })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.albums_sort)) }, leadingIcon = { Icon(Icons.Filled.Sort, contentDescription = null) }, onClick = { menuOpen = false; sortPickerOpen = true })
                             DropdownMenuItem(
-                                text = { Text("Lock album") },
+                                text = { Text(stringResource(R.string.albums_lock)) },
                                 leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
@@ -169,7 +173,7 @@ fun AlbumDetailScreen(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Select all") },
+                                text = { Text(stringResource(R.string.action_select_all)) },
                                 leadingIcon = { Icon(Icons.Filled.SelectAll, contentDescription = null) },
                                 onClick = { menuOpen = false; selection.selectAll(sortedItems.map { it.id }) },
                             )
@@ -184,7 +188,7 @@ fun AlbumDetailScreen(
             when {
                 vm.loading -> LoadingState()
                 vm.error != null -> ErrorState(vm.error!!, onRetry = { vm.load() })
-                vm.subAlbums.isEmpty() && sortedItems.isEmpty() -> EmptyState("Nothing in this album yet")
+                vm.subAlbums.isEmpty() && sortedItems.isEmpty() -> EmptyState(stringResource(R.string.albums_detail_empty))
                 else -> LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(2.dp)) {
                     if (vm.subAlbums.isNotEmpty()) {
                         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
@@ -220,17 +224,17 @@ fun AlbumDetailScreen(
         var text by remember { mutableStateOf(vm.album?.title.orEmpty()) }
         AlertDialog(
             onDismissRequest = { renameOpen = false },
-            title = { Text("Rename album") },
+            title = { Text(stringResource(R.string.albums_rename_title)) },
             text = { OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true) },
-            confirmButton = { TextButton(onClick = { vm.rename(text); renameOpen = false }) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { vm.rename(text); renameOpen = false }) { Text(stringResource(R.string.action_save)) } },
+            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
     if (coverPickerOpen) {
         AlertDialog(
             onDismissRequest = { coverPickerOpen = false },
-            title = { Text("Set cover") },
+            title = { Text(stringResource(R.string.albums_set_cover)) },
             text = {
                 LazyVerticalGrid(columns = GridCells.Fixed(4), modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp), contentPadding = PaddingValues(4.dp)) {
                     items(sortedItems, key = { it.id }) { item ->
@@ -247,14 +251,14 @@ fun AlbumDetailScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { coverPickerOpen = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { coverPickerOpen = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 
     if (accentPickerOpen) {
         AlertDialog(
             onDismissRequest = { accentPickerOpen = false },
-            title = { Text("Accent colour") },
+            title = { Text(stringResource(R.string.albums_accent_colour)) },
             text = {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     accentPresets.forEach { argb ->
@@ -273,7 +277,7 @@ fun AlbumDetailScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { scope.launch { graph.local.setAlbumAccent(albumId, null) }; accentPickerOpen = false }) { Text("Clear") }
+                TextButton(onClick = { scope.launch { graph.local.setAlbumAccent(albumId, null) }; accentPickerOpen = false }) { Text(stringResource(R.string.common_clear)) }
             },
         )
     }
@@ -281,10 +285,10 @@ fun AlbumDetailScreen(
     if (sortPickerOpen) {
         AlertDialog(
             onDismissRequest = { sortPickerOpen = false },
-            title = { Text("Sort") },
+            title = { Text(stringResource(R.string.albums_sort)) },
             text = {
                 Column {
-                    listOf(SortOrder.NEWEST to "Newest first", SortOrder.OLDEST to "Oldest first", SortOrder.NAME to "Name").forEach { (value, label) ->
+                    listOf(SortOrder.NEWEST to R.string.albums_sort_newest, SortOrder.OLDEST to R.string.albums_sort_oldest, SortOrder.NAME to R.string.albums_sort_name).forEach { (value, label) ->
                         Row(
                             Modifier
                                 .fillMaxWidth()
@@ -292,12 +296,12 @@ fun AlbumDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(selected = order == value, onClick = { scope.launch { graph.local.setAlbumSort(albumId, value) }; sortPickerOpen = false })
-                            Text(label)
+                            Text(stringResource(label))
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { sortPickerOpen = false }) { Text("Done") } },
+            confirmButton = { TextButton(onClick = { sortPickerOpen = false }) { Text(stringResource(R.string.action_done)) } },
         )
     }
 
@@ -327,7 +331,7 @@ fun AlbumDetailScreen(
             onAdded = { title ->
                 showAddToAlbum = false
                 selection.clear()
-                scope.launch { snackbarHostState.showSnackbar("Added to $title") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.selection_added_to_album, title)) }
             },
         )
     }

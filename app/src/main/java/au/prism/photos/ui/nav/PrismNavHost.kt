@@ -106,6 +106,7 @@ fun PrismNavHost(
                 Gated(gated) {
                     AlbumDetailScreen(
                         albumId = albumId,
+                        showLocked = gated,
                         onBack = { navController.popBackStack() },
                         onOpenAlbum = { id -> navController.navigate(Routes.album(id, locked = gated)) },
                         onOpenViewer = { index ->
@@ -158,6 +159,7 @@ fun PrismNavHost(
                 Gated(gated) {
                     ViewerScreen(
                         source = source,
+                        showLocked = gated,
                         startIndex = index,
                         onClose = { navController.popBackStack() },
                         onEdit = { itemId -> navController.navigate(Routes.editor(itemId, locked = gated)) },

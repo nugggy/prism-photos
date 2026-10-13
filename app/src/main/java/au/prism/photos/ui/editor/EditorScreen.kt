@@ -47,8 +47,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 
 /**
@@ -92,7 +94,7 @@ fun EditorScreen(
             putExtra(Intent.EXTRA_STREAM, result.uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "Share photo"))
+        context.startActivity(Intent.createChooser(intent, context.getString(R.string.editor_share_photo)))
     }
 
     BackHandler { requestClose() }
@@ -103,31 +105,31 @@ fun EditorScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Edit") },
+                title = { Text(stringResource(R.string.editor_title)) },
                 navigationIcon = {
                     IconButton(onClick = { requestClose() }) {
-                        Icon(Icons.Filled.Close, contentDescription = "Cancel")
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_cancel))
                     }
                 },
                 actions = {
                     IconButton(onClick = { vm.undo() }, enabled = canUndo) {
-                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                        Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.action_undo))
                     }
                     IconButton(onClick = { vm.redo() }, enabled = canRedo) {
-                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                        Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.editor_redo))
                     }
                     IconButton(onClick = { vm.toggleCompare() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.CompareArrows,
-                            contentDescription = "Compare with original",
+                            contentDescription = stringResource(R.string.editor_compare),
                             tint = if (compareOriginal) PlexGold else Color.White,
                         )
                     }
                     IconButton(onClick = { showRevertConfirm = true }, enabled = hasChanges) {
-                        Icon(Icons.Filled.RestartAlt, contentDescription = "Revert to original")
+                        Icon(Icons.Filled.RestartAlt, contentDescription = stringResource(R.string.editor_revert))
                     }
                     TextButton(onClick = { vm.save(onDone) }, enabled = !saving && bitmap != null) {
-                        Text("Save", color = PlexGold)
+                        Text(stringResource(R.string.action_save), color = PlexGold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black, titleContentColor = Color.White),
@@ -152,7 +154,7 @@ fun EditorScreen(
                                 contentDescription = null,
                             )
                         },
-                        label = { Text(tool.label) },
+                        label = { Text(stringResource(tool.labelRes)) },
                     )
                 }
             }
@@ -200,13 +202,13 @@ fun EditorScreen(
     if (showDiscardConfirm) {
         AlertDialog(
             onDismissRequest = { showDiscardConfirm = false },
-            title = { Text("Discard changes?") },
-            text = { Text("Your edits haven't been saved.") },
+            title = { Text(stringResource(R.string.editor_discard_title)) },
+            text = { Text(stringResource(R.string.editor_discard_body)) },
             confirmButton = {
-                TextButton(onClick = { showDiscardConfirm = false; onCancel() }) { Text("Discard") }
+                TextButton(onClick = { showDiscardConfirm = false; onCancel() }) { Text(stringResource(R.string.action_discard)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDiscardConfirm = false }) { Text("Keep editing") }
+                TextButton(onClick = { showDiscardConfirm = false }) { Text(stringResource(R.string.action_keep_editing)) }
             },
         )
     }
@@ -214,13 +216,13 @@ fun EditorScreen(
     if (showRevertConfirm) {
         AlertDialog(
             onDismissRequest = { showRevertConfirm = false },
-            title = { Text("Revert to original?") },
-            text = { Text("This clears every adjustment, filter, crop, markup and frame you've applied.") },
+            title = { Text(stringResource(R.string.editor_revert_title)) },
+            text = { Text(stringResource(R.string.editor_revert_body)) },
             confirmButton = {
-                TextButton(onClick = { showRevertConfirm = false; vm.revertToOriginal() }) { Text("Revert") }
+                TextButton(onClick = { showRevertConfirm = false; vm.revertToOriginal() }) { Text(stringResource(R.string.editor_revert_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRevertConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showRevertConfirm = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

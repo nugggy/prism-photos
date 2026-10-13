@@ -40,8 +40,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.util.Format
@@ -80,50 +82,50 @@ fun ViewerTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Close", tint = Color.White)
+                Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_close), tint = Color.White)
             }
         },
         actions = {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = Color.White)
+                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.viewer_more), tint = Color.White)
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(text = { Text("Info") }, leadingIcon = { Icon(Icons.Filled.Info, null) }, onClick = { menuOpen = false; onInfo() })
-                DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; onRename() })
-                DropdownMenuItem(text = { Text("Edit description") }, onClick = { menuOpen = false; onEditDescription() })
-                DropdownMenuItem(text = { Text("Tags") }, onClick = { menuOpen = false; onTags() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.viewer_info)) }, leadingIcon = { Icon(Icons.Filled.Info, null) }, onClick = { menuOpen = false; onInfo() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.viewer_rename)) }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; onRename() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.viewer_edit_description)) }, onClick = { menuOpen = false; onEditDescription() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.viewer_tags)) }, onClick = { menuOpen = false; onTags() })
                 if (item.albumId != null) {
-                    DropdownMenuItem(text = { Text("Set as album cover") }, onClick = { menuOpen = false; onSetAlbumCover() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.viewer_set_album_cover)) }, onClick = { menuOpen = false; onSetAlbumCover() })
                 }
                 DropdownMenuItem(
-                    text = { Text("Add to album") },
+                    text = { Text(stringResource(R.string.viewer_add_to_album)) },
                     leadingIcon = { Icon(Icons.Filled.PlaylistAdd, null) },
                     onClick = { menuOpen = false; onAddToAlbum() },
                 )
                 DropdownMenuItem(
-                    text = { Text("Set as wallpaper") },
+                    text = { Text(stringResource(R.string.viewer_set_wallpaper)) },
                     leadingIcon = { Icon(Icons.Filled.Wallpaper, null) },
                     onClick = { menuOpen = false; onWallpaper() },
                 )
                 DropdownMenuItem(
-                    text = { Text(if (isLocked) "Unlock" else "Lock") },
+                    text = { Text(stringResource(if (isLocked) R.string.viewer_unlock else R.string.viewer_lock)) },
                     leadingIcon = { Icon(if (isLocked) Icons.Filled.LockOpen else Icons.Filled.Lock, null) },
                     onClick = { menuOpen = false; onLockToggle() },
                 )
                 DropdownMenuItem(
-                    text = { Text("Slideshow") },
+                    text = { Text(stringResource(R.string.viewer_slideshow)) },
                     leadingIcon = { Icon(Icons.Filled.PlayCircle, null) },
                     onClick = { menuOpen = false; onSlideshow() },
                 )
                 if (onOpenInPlex != null) {
                     DropdownMenuItem(
-                        text = { Text("Open in Plex") },
+                        text = { Text(stringResource(R.string.viewer_open_in_plex)) },
                         leadingIcon = { Icon(Icons.Filled.OpenInNew, null) },
                         onClick = { menuOpen = false; onOpenInPlex() },
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Delete") },
+                    text = { Text(stringResource(R.string.viewer_delete)) },
                     leadingIcon = { Icon(Icons.Filled.Delete, null) },
                     onClick = { menuOpen = false; onDelete() },
                 )
@@ -155,26 +157,26 @@ fun ViewerBottomBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onShare) {
-            Icon(Icons.Filled.Share, contentDescription = "Share", tint = Color.White)
+            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.viewer_share), tint = Color.White)
         }
         IconButton(onClick = onFavourite) {
             Icon(
                 imageVector = if (item.favourite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = "Favourite",
+                contentDescription = stringResource(R.string.viewer_favourite),
                 tint = if (item.favourite) PlexGold else Color.White,
                 modifier = Modifier.animateContentSize(),
             )
         }
         if (onEdit != null) {
             IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = if (item.isVideo) "Edit video" else "Edit", tint = Color.White)
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(if (item.isVideo) R.string.viewer_edit_video else R.string.viewer_edit), tint = Color.White)
             }
         }
         IconButton(onClick = onDownload) {
-            Icon(Icons.Filled.Download, contentDescription = "Download", tint = Color.White)
+            Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.viewer_download), tint = Color.White)
         }
         IconButton(onClick = onInfo) {
-            Icon(Icons.Filled.Info, contentDescription = "Info", tint = Color.White)
+            Icon(Icons.Filled.Info, contentDescription = stringResource(R.string.viewer_info), tint = Color.White)
         }
     }
 }

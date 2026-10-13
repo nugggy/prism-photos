@@ -27,14 +27,14 @@ fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> 
     var text by remember { mutableStateOf(current) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename") },
+        title = { Text(stringResource(R.string.viewer_rename)) },
         text = {
             OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
         },
         confirmButton = {
-            TextButton(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) else onDismiss() }) { Text("Save") }
+            TextButton(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) else onDismiss() }) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -44,8 +44,8 @@ fun DeleteConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.viewer_delete_confirm_title)) },
         text = { Text(stringResource(R.string.delete_permanent_single)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.action_delete)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -62,13 +62,13 @@ fun SyncedDeleteConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete from Plex as well?") },
-        text = { Text("This photo was synced to your Plex library. Deleting it here can also remove it from Plex.") },
-        confirmButton = { TextButton(onClick = onDeleteFromBoth) { Text("Delete from both") } },
+        title = { Text(stringResource(R.string.viewer_synced_delete_title)) },
+        text = { Text(stringResource(R.string.viewer_synced_delete_body)) },
+        confirmButton = { TextButton(onClick = onDeleteFromBoth) { Text(stringResource(R.string.viewer_synced_delete_both)) } },
         dismissButton = {
             Row {
-                TextButton(onClick = onPhoneOnly) { Text("Phone only") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onPhoneOnly) { Text(stringResource(R.string.viewer_synced_delete_phone_only)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )
@@ -80,15 +80,15 @@ fun WallpaperSheet(onDismiss: () -> Unit, onPick: (home: Boolean, lock: Boolean)
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
             ListItem(
-                headlineContent = { Text("Home screen") },
+                headlineContent = { Text(stringResource(R.string.wallpaper_home)) },
                 modifier = Modifier.clickableRow { onPick(true, false) },
             )
             ListItem(
-                headlineContent = { Text("Lock screen") },
+                headlineContent = { Text(stringResource(R.string.wallpaper_lock)) },
                 modifier = Modifier.clickableRow { onPick(false, true) },
             )
             ListItem(
-                headlineContent = { Text("Home and lock screen") },
+                headlineContent = { Text(stringResource(R.string.wallpaper_both)) },
                 modifier = Modifier.clickableRow { onPick(true, true) },
             )
         }

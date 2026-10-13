@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,7 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.ui.components.KeepScreenOn
 import au.prism.photos.ui.components.PipState
@@ -211,7 +213,8 @@ fun VideoPlayer(
     var skipLabel by remember { mutableStateOf<String?>(null) }
     var toastMessage by remember { mutableStateOf<String?>(null) }
 
-    controller.onSwitchedToTranscode = { toastMessage = "Switched to transcoding" }
+    val switchedToTranscodeMessage = stringResource(R.string.player_switched_to_transcoding)
+    controller.onSwitchedToTranscode = { toastMessage = switchedToTranscodeMessage }
 
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -353,7 +356,7 @@ fun VideoPlayer(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = stringResource(if (isPlaying) R.string.player_pause else R.string.player_play),
                         tint = Color.White,
                         modifier = Modifier.size(40.dp),
                     )
@@ -409,7 +412,7 @@ fun VideoPlayer(
                             }) {
                                 Icon(
                                     imageVector = if (muted) Icons.Filled.VolumeOff else Icons.Filled.VolumeUp,
-                                    contentDescription = "Mute",
+                                    contentDescription = stringResource(R.string.player_mute),
                                     tint = Color.White,
                                 )
                             }
@@ -420,18 +423,18 @@ fun VideoPlayer(
                             }) {
                                 Icon(
                                     Icons.Filled.Loop,
-                                    contentDescription = "Loop",
+                                    contentDescription = stringResource(R.string.player_loop),
                                     tint = if (looping) PlexGold else Color.White,
                                 )
                             }
                             Box {
                                 IconButton(onClick = { showSpeedMenu = true }) {
-                                    Icon(Icons.Filled.Speed, contentDescription = "Playback speed", tint = Color.White)
+                                    Icon(Icons.Filled.Speed, contentDescription = stringResource(R.string.player_playback_speed), tint = Color.White)
                                 }
                                 DropdownMenu(expanded = showSpeedMenu, onDismissRequest = { showSpeedMenu = false }) {
                                     speedOptions.forEach { option ->
                                         DropdownMenuItem(
-                                            text = { Text("${option}x") },
+                                            text = { Text(stringResource(R.string.player_speed_option, option.toString())) },
                                             onClick = {
                                                 speed = option
                                                 controller.exoPlayer.playbackParameters = PlaybackParameters(option)
@@ -461,7 +464,7 @@ fun VideoPlayer(
                                     )
                                 }
                             }) {
-                                Icon(Icons.Filled.PictureInPictureAlt, contentDescription = "Picture in picture", tint = Color.White)
+                                Icon(Icons.Filled.PictureInPictureAlt, contentDescription = stringResource(R.string.player_picture_in_picture), tint = Color.White)
                             }
                             IconButton(onClick = {
                                 if (activity != null) {
@@ -475,7 +478,7 @@ fun VideoPlayer(
                             }) {
                                 Icon(
                                     imageVector = if (fullscreen) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                                    contentDescription = "Fullscreen",
+                                    contentDescription = stringResource(R.string.player_fullscreen),
                                     tint = Color.White,
                                 )
                             }
@@ -492,7 +495,7 @@ private fun TranscodeToggle(transcode: Boolean, enabled: Boolean, onToggle: (Boo
     if (!enabled) return
     IconButton(onClick = { onToggle(!transcode) }) {
         Text(
-            text = if (transcode) "HLS" else "Direct",
+            text = stringResource(if (transcode) R.string.player_transcode else R.string.player_direct),
             color = if (transcode) PlexGold else Color.White,
             style = MaterialTheme.typography.labelSmall,
         )

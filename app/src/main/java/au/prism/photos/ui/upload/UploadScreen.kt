@@ -38,8 +38,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.data.upload.DestinationType
 import au.prism.photos.data.upload.DeviceFileInfo
 import au.prism.photos.data.upload.DeviceFileInspector
@@ -124,8 +127,8 @@ fun UploadScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Upload to Plex") },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Filled.Close, contentDescription = "Close") } },
+                title = { Text(stringResource(R.string.upload_title)) },
+                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close)) } },
             )
         },
     ) { padding ->
@@ -138,7 +141,11 @@ fun UploadScreen(
         ) {
             val totalBytes = fileInfos.sumOf { it.size }
             Text(
-                if (fileInfos.isEmpty()) "${uris.size} item(s)" else "${uris.size} item(s) · ${formatBytes(totalBytes)}",
+                if (fileInfos.isEmpty()) {
+                    pluralStringResource(R.plurals.common_item_count, uris.size, uris.size)
+                } else {
+                    pluralStringResource(R.plurals.upload_item_count_size, uris.size, uris.size, formatBytes(totalBytes))
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(Modifier.height(16.dp))
@@ -146,21 +153,21 @@ fun UploadScreen(
             if (!destinationConfigured) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("No sync destination set up", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.upload_no_destination), style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Open Settings and fill in \"Sync to Plex\" with your server's SMB share or WebDAV address before uploading.",
+                            stringResource(R.string.upload_no_destination_body),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                         )
-                        Button(onClick = { (onOpenSettings ?: onCancel)() }) { Text("Go to Settings") }
+                        Button(onClick = { (onOpenSettings ?: onCancel)() }) { Text(stringResource(R.string.upload_go_to_settings)) }
                     }
                 }
                 return@Column
             }
 
             if (report == null) {
-                Text("Destination folder", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.upload_destination_folder), style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(4.dp))
                 Column(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -168,7 +175,7 @@ fun UploadScreen(
                             selected = !useNewFolder && selectedAlbumTitle == null,
                             onClick = { useNewFolder = false; selectedAlbumTitle = null },
                         )
-                        Text("Default: $defaultPattern", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.upload_default_folder, defaultPattern), style = MaterialTheme.typography.bodyMedium)
                     }
                     folderAlbums.forEach { album ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -184,7 +191,7 @@ fun UploadScreen(
                         OutlinedTextField(
                             value = newFolderName,
                             onValueChange = { newFolderName = it },
-                            label = { Text("New folder") },
+                            label = { Text(stringResource(R.string.upload_new_folder)) },
                             singleLine = true,
                             enabled = !uploading,
                             modifier = Modifier.weight(1f),
@@ -197,16 +204,16 @@ fun UploadScreen(
             }
 
             if (uploading) {
-                Text("Uploading $done of $total  ·  $currentName", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.upload_progress, done, total, currentName), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
                 LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(4.dp))
                 val overall = if (total > 0) (done + fraction) / total else 0f
-                Text("${(overall * 100).toInt()}% overall", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.upload_overall, (overall * 100).toInt()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 val r = report
                 if (r != null) {
-                    Text("Uploaded ${r.uploaded}, already synced ${r.skipped}, failed ${r.failed}", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.upload_report, r.uploaded, r.skipped, r.failed), style = MaterialTheme.typography.titleSmall)
                     if (r.errors.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
@@ -216,13 +223,13 @@ fun UploadScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") }
+                    Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_done)) }
                 } else {
                     Button(
                         onClick = { startUpload() },
                         enabled = uris.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Upload") }
+                    ) { Text(stringResource(R.string.upload_start)) }
                 }
             }
         }

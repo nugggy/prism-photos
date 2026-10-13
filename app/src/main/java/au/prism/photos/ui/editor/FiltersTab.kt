@@ -30,7 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import kotlin.math.roundToInt
 
@@ -56,7 +58,7 @@ fun FiltersTab(vm: EditorViewModel, bitmap: Bitmap, selected: FilterPreset, stre
                     ) {
                         Image(
                             bitmap = imageBitmap,
-                            contentDescription = preset.label,
+                            contentDescription = stringResource(preset.labelRes),
                             contentScale = ContentScale.Crop,
                             colorFilter = ColorFilter.colorMatrix(
                                 androidx.compose.ui.graphics.ColorMatrix(EditorColour.filterMatrixAtStrength(preset, 100f)),
@@ -64,7 +66,7 @@ fun FiltersTab(vm: EditorViewModel, bitmap: Bitmap, selected: FilterPreset, stre
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    Text(preset.label, style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(preset.labelRes), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -72,7 +74,7 @@ fun FiltersTab(vm: EditorViewModel, bitmap: Bitmap, selected: FilterPreset, stre
             var current by remember(selected, strength) { mutableStateOf(strength) }
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Strength", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.editor_filter_strength), style = MaterialTheme.typography.labelMedium)
                     Text("${current.roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = PlexGold)
                 }
                 Slider(

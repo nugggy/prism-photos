@@ -63,6 +63,7 @@ import au.prism.photos.PrismApp
 import au.prism.photos.data.upload.ConnectionTester
 import au.prism.photos.data.upload.DestinationType
 import au.prism.photos.data.upload.SyncScheduler
+import au.prism.photos.data.upload.isInsecureRemoteUrl
 import au.prism.photos.domain.ConnectionMode
 import au.prism.photos.domain.DeviceAlbum
 import au.prism.photos.domain.ThemeMode
@@ -94,35 +95,42 @@ fun SettingsScreen(
     var signOutConfirm by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var qualityDialog by remember { mutableStateOf(false) }
+    val reconnectedMessage = stringResource(R.string.settings_reconnected)
+    val reconnectFailedMessage = stringResource(R.string.settings_reconnect_failed)
+    val cacheClearedMessage = stringResource(R.string.settings_cache_cleared)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+                title = { Text(stringResource(R.string.action_settings)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) } },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         LazyColumn(modifier = Modifier.padding(padding).fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp)) {
-            item { SectionHeader("Account") }
-            item { ListItem(headlineContent = { Text(session.user?.title ?: "Not signed in") }, supportingContent = { Text(session.user?.email.orEmpty()) }) }
-            item { ListItem(headlineContent = { Text("Server") }, supportingContent = { Text(session.server?.name ?: "Not connected") }) }
+            item { SectionHeader(stringResource(R.string.settings_section_account)) }
+            item { ListItem(headlineContent = { Text(session.user?.title ?: stringResource(R.string.settings_not_signed_in)) }, supportingContent = { Text(session.user?.email.orEmpty()) }) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_server)) }, supportingContent = { Text(session.server?.name ?: stringResource(R.string.settings_not_connected)) }) }
             item {
                 ListItem(
-                    headlineContent = { Text("Connection") },
+                    headlineContent = { Text(stringResource(R.string.settings_connection)) },
                     supportingContent = { Text("${session.active?.kind ?: "–"} · ${session.active?.uri ?: ""}") },
                 )
             }
-            item { ClickableRow("Switch server", onSwitchServer) }
-            item { ClickableRow("Switch library (${session.libraryTitle ?: "none"})", onSwitchLibrary) }
-            item { ClickableRow("Sign out", { signOutConfirm = true }, danger = true) }
+            item { ClickableRow(stringResource(R.string.settings_switch_server), onSwitchServer) }
+            item { ClickableRow(stringResource(R.string.settings_switch_library, session.libraryTitle ?: stringResource(R.string.settings_library_none)), onSwitchLibrary) }
+            item { ClickableRow(stringResource(R.string.settings_sign_out), { signOutConfirm = true }, danger = true) }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Connection") }
+            item { SectionHeader(stringResource(R.string.settings_section_connection)) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    listOf(ConnectionMode.AUTO to "Auto", ConnectionMode.LAN to "Same network as server", ConnectionMode.REMOTE to "Remote only").forEach { (mode, label) ->
+                    listOf(
+                        ConnectionMode.AUTO to stringResource(R.string.settings_connection_auto),
+                        ConnectionMode.LAN to stringResource(R.string.settings_connection_lan),
+                        ConnectionMode.REMOTE to stringResource(R.string.settings_connection_remote),
+                    ).forEach { (mode, label) ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             RadioButton(selected = settings.connectionMode == mode, onClick = { scope.launch { graph.settings.update { it.copy(connectionMode = mode) } } })
                             Text(label)
@@ -131,8 +139,8 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = manualLan,
                         onValueChange = { manualLan = it; scope.launch { graph.settings.update { s -> s.copy(manualServerUrl = manualLan) } } },
-                        label = { Text("Manual LAN address") },
-                        placeholder = { Text("http://192.168.1.20:32400") },
+                        label = { Text(stringResource(R.string.settings_manual_lan_address)) },
+                        placeholder = { Text(stringResource(R.string.settings_manual_lan_placeholder)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     )
@@ -143,22 +151,22 @@ fun SettingsScreen(
                             scope.launch {
                                 reconnecting = true
                                 graph.auth.connect(server, settings.connectionMode, settings.manualServerUrl.ifBlank { null })
-                                    .onSuccess { active -> graph.session.update { it.copy(active = active) }; snackbarHostState.showSnackbar("Reconnected") }
-                                    .onFailure { snackbarHostState.showSnackbar(it.message ?: "Could not reconnect") }
+                                    .onSuccess { active -> graph.session.update { it.copy(active = active) }; snackbarHostState.showSnackbar(reconnectedMessage) }
+                                    .onFailure { snackbarHostState.showSnackbar(it.message ?: reconnectFailedMessage) }
                                 reconnecting = false
                             }
                         },
-                    ) { Text("Reconnect now") }
+                    ) { Text(stringResource(R.string.settings_reconnect_now)) }
                 }
             }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Appearance") }
-            item { ClickableRow("Theme (${settings.theme.name.lowercase().replaceFirstChar { it.uppercase() }})", { themeDialog = true }) }
+            item { SectionHeader(stringResource(R.string.settings_section_appearance)) }
+            item { ClickableRow(stringResource(R.string.settings_theme_row, themeLabel(settings.theme)), { themeDialog = true }) }
             item {
                 ListItem(
-                    headlineContent = { Text("Dynamic colour") },
-                    supportingContent = { Text("Use Material You colours from your wallpaper") },
+                    headlineContent = { Text(stringResource(R.string.settings_dynamic_colour)) },
+                    supportingContent = { Text(stringResource(R.string.settings_dynamic_colour_summary)) },
                     trailingContent = {
                         Switch(checked = settings.dynamicColour, onCheckedChange = { v -> scope.launch { graph.settings.update { it.copy(dynamicColour = v) } } })
                     },
@@ -166,7 +174,7 @@ fun SettingsScreen(
             }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Default grid columns: ${settings.gridColumns}", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_grid_columns, settings.gridColumns), style = MaterialTheme.typography.bodyMedium)
                     Slider(
                         value = settings.gridColumns.toFloat(),
                         onValueChange = { v -> scope.launch { graph.settings.update { it.copy(gridColumns = v.toInt().coerceIn(2, 6)) } } },
@@ -175,14 +183,14 @@ fun SettingsScreen(
                     )
                 }
             }
-            item { ClickableRow("Thumbnail quality (${settings.thumbQuality.name.lowercase().replaceFirstChar { it.uppercase() }})", { qualityDialog = true }) }
+            item { ClickableRow(stringResource(R.string.settings_thumb_quality_row, thumbQualityLabel(settings.thumbQuality)), { qualityDialog = true }) }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Playback") }
+            item { SectionHeader(stringResource(R.string.settings_section_playback)) }
             item {
                 ListItem(
-                    headlineContent = { Text("Prefer transcoding") },
-                    supportingContent = { Text("Use server transcode instead of direct play") },
+                    headlineContent = { Text(stringResource(R.string.settings_prefer_transcoding)) },
+                    supportingContent = { Text(stringResource(R.string.settings_prefer_transcoding_summary)) },
                     trailingContent = {
                         Switch(checked = settings.preferTranscode, onCheckedChange = { v -> scope.launch { graph.settings.update { it.copy(preferTranscode = v) } } })
                     },
@@ -190,7 +198,7 @@ fun SettingsScreen(
             }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text("Slideshow interval: ${settings.slideshowIntervalSec}s", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.settings_slideshow_interval, settings.slideshowIntervalSec), style = MaterialTheme.typography.bodyMedium)
                     Slider(
                         value = settings.slideshowIntervalSec.toFloat(),
                         onValueChange = { v -> scope.launch { graph.settings.update { it.copy(slideshowIntervalSec = v.toInt().coerceIn(2, 15)) } } },
@@ -201,58 +209,58 @@ fun SettingsScreen(
             }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Updates") }
+            item { SectionHeader(stringResource(R.string.settings_section_updates)) }
             item {
                 OutlinedTextField(
                     value = updateRepo,
                     onValueChange = { updateRepo = it; scope.launch { graph.settings.update { s -> s.copy(updateRepo = updateRepo) } } },
-                    label = { Text("GitHub repository (owner/name)") },
+                    label = { Text(stringResource(R.string.settings_update_repo)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Automatically check for updates") },
+                    headlineContent = { Text(stringResource(R.string.settings_auto_check_updates)) },
                     trailingContent = { Switch(checked = settings.autoCheckUpdates, onCheckedChange = { v -> scope.launch { graph.settings.update { it.copy(autoCheckUpdates = v) } } }) },
                 )
             }
             item {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Button(onClick = { updateVm.checkNow(manual = true) }, enabled = !updateVm.checking) { Text(if (updateVm.checking) "Checking" else "Check for updates") }
+                    Button(onClick = { updateVm.checkNow(manual = true) }, enabled = !updateVm.checking) { Text(stringResource(if (updateVm.checking) R.string.settings_checking else R.string.settings_check_for_updates)) }
                     updateVm.manualMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Storage") }
+            item { SectionHeader(stringResource(R.string.settings_section_storage)) }
             item {
-                ClickableRow("Clear cache", {
-                    scope.launch { graph.media.clearCache(); snackbarHostState.showSnackbar("Cache cleared") }
+                ClickableRow(stringResource(R.string.settings_clear_cache), {
+                    scope.launch { graph.media.clearCache(); snackbarHostState.showSnackbar(cacheClearedMessage) }
                 })
             }
-            item { ListItem(headlineContent = { Text("Version") }, supportingContent = { Text(BuildConfig.VERSION_NAME) }) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_version)) }, supportingContent = { Text(BuildConfig.VERSION_NAME) }) }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Gallery") }
+            item { SectionHeader(stringResource(R.string.settings_section_gallery)) }
             item {
-                ClickableRow("Set as default gallery", {
+                ClickableRow(stringResource(R.string.settings_set_default_gallery), {
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                 })
             }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Sync to Plex") }
+            item { SectionHeader(stringResource(R.string.settings_section_sync)) }
             item { SyncToPlexSection() }
 
             item { HorizontalDivider() }
-            item { SectionHeader("Diagnostics") }
+            item { SectionHeader(stringResource(R.string.settings_section_diagnostics)) }
             item { DiagnosticsPanel(onReload = { scope.launch { graph.media.refreshTimeline(force = true) } }) }
-            item { SectionHeader("About") }
+            item { SectionHeader(stringResource(R.string.settings_section_about)) }
             item {
                 ListItem(
-                    headlineContent = { Text("Plex Gallery") },
-                    supportingContent = { Text("A clean, professional photo library client for Plex Media Server. Plex Gallery is not affiliated with Plex Inc.") },
+                    headlineContent = { Text(stringResource(R.string.settings_about_title)) },
+                    supportingContent = { Text(stringResource(R.string.settings_about_body)) },
                 )
             }
         }
@@ -263,8 +271,8 @@ fun SettingsScreen(
     if (signOutConfirm) {
         AlertDialog(
             onDismissRequest = { signOutConfirm = false },
-            title = { Text("Sign out?") },
-            text = { Text("You will need to sign in again to see your photos.") },
+            title = { Text(stringResource(R.string.settings_sign_out_title)) },
+            text = { Text(stringResource(R.string.settings_sign_out_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     signOutConfirm = false
@@ -273,48 +281,67 @@ fun SettingsScreen(
                         graph.session.clear()
                         onSignedOut()
                     }
-                }) { Text("Sign out") }
+                }) { Text(stringResource(R.string.settings_sign_out)) }
             },
-            dismissButton = { TextButton(onClick = { signOutConfirm = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { signOutConfirm = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
     if (themeDialog) {
         AlertDialog(
             onDismissRequest = { themeDialog = false },
-            title = { Text("Theme") },
+            title = { Text(stringResource(R.string.settings_theme)) },
             text = {
                 Column {
                     ThemeMode.entries.forEach { mode ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             RadioButton(selected = settings.theme == mode, onClick = { scope.launch { graph.settings.update { it.copy(theme = mode) } }; themeDialog = false })
-                            Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
+                            Text(themeLabel(mode))
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { themeDialog = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { themeDialog = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 
     if (qualityDialog) {
         AlertDialog(
             onDismissRequest = { qualityDialog = false },
-            title = { Text("Thumbnail quality") },
+            title = { Text(stringResource(R.string.settings_thumb_quality)) },
             text = {
                 Column {
                     ThumbQuality.entries.forEach { q ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             RadioButton(selected = settings.thumbQuality == q, onClick = { scope.launch { graph.settings.update { it.copy(thumbQuality = q) } }; qualityDialog = false })
-                            Text(q.name.lowercase().replaceFirstChar { it.uppercase() })
+                            Text(thumbQualityLabel(q))
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { qualityDialog = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { qualityDialog = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
+
+@Composable
+private fun themeLabel(mode: ThemeMode): String = stringResource(
+    when (mode) {
+        ThemeMode.SYSTEM -> R.string.settings_theme_system
+        ThemeMode.LIGHT -> R.string.settings_theme_light
+        ThemeMode.DARK -> R.string.settings_theme_dark
+        ThemeMode.AMOLED -> R.string.settings_theme_amoled
+    },
+)
+
+@Composable
+private fun thumbQualityLabel(quality: ThumbQuality): String = stringResource(
+    when (quality) {
+        ThumbQuality.LOW -> R.string.settings_thumb_quality_low
+        ThumbQuality.MEDIUM -> R.string.settings_thumb_quality_medium
+        ThumbQuality.HIGH -> R.string.settings_thumb_quality_high
+    },
+)
 
 @Composable
 private fun SectionHeader(title: String) {
@@ -342,7 +369,7 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
     val lines by au.prism.photos.data.Diagnostics.lines.collectAsStateWithLifecycle()
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
-            "What the app last did when loading your library. Copy this if something is not showing up.",
+            stringResource(R.string.settings_diagnostics_intro),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -350,7 +377,7 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(12.dp)) {
                 if (lines.isEmpty()) {
-                    Text("Nothing logged yet.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.settings_diagnostics_empty), style = MaterialTheme.typography.bodySmall)
                 } else {
                     lines.takeLast(12).forEach { line ->
                         Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
@@ -363,7 +390,7 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.errorContainer) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("The app crashed last time. Copy this and send it along.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Text(stringResource(R.string.settings_crash_intro), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(4.dp))
                     Text(lastCrash.lineSequence().take(12).joinToString(separator = System.lineSeparator()), style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onErrorContainer)
                     Spacer(Modifier.height(8.dp))
@@ -371,19 +398,19 @@ private fun DiagnosticsPanel(onReload: () -> Unit) {
                         OutlinedButton(onClick = {
                             val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                             clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Crash", lastCrash))
-                        }) { Text("Copy crash report") }
-                        OutlinedButton(onClick = { au.prism.photos.data.CrashLog.clear(context) }) { Text("Dismiss") }
+                        }) { Text(stringResource(R.string.settings_copy_crash_report)) }
+                        OutlinedButton(onClick = { au.prism.photos.data.CrashLog.clear(context) }) { Text(stringResource(R.string.settings_dismiss)) }
                     }
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onReload) { Text("Reload library") }
+            Button(onClick = onReload) { Text(stringResource(R.string.settings_reload_library)) }
             OutlinedButton(onClick = {
                 val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
                 clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Diagnostics", au.prism.photos.data.Diagnostics.asText()))
-            }) { Text("Copy diagnostics") }
+            }) { Text(stringResource(R.string.settings_copy_diagnostics)) }
         }
     }
 }
@@ -416,6 +443,7 @@ private fun SyncToPlexSection() {
     var testing by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var deviceAlbums by remember { mutableStateOf<List<DeviceAlbum>>(emptyList()) }
+    val unknownError = stringResource(R.string.sync_unknown_error)
 
     LaunchedEffect(Unit) {
         if (graph.device.hasPermission()) deviceAlbums = graph.device.albums()
@@ -441,53 +469,53 @@ private fun SyncToPlexSection() {
     }
 
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text("Destination type", style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.sync_destination_type), style = MaterialTheme.typography.labelLarge)
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             RadioButton(
                 selected = destination.type == DestinationType.SMB,
                 onClick = { updateDestination { it.copy(type = DestinationType.SMB) } },
             )
-            Text("SMB", modifier = Modifier.padding(end = 16.dp))
+            Text(stringResource(R.string.sync_type_smb), modifier = Modifier.padding(end = 16.dp))
             RadioButton(
                 selected = destination.type == DestinationType.WEBDAV,
                 onClick = { updateDestination { it.copy(type = DestinationType.WEBDAV) } },
             )
-            Text("WebDAV")
+            Text(stringResource(R.string.sync_type_webdav))
         }
 
         if (destination.type == DestinationType.SMB) {
             OutlinedTextField(
                 value = smbHost,
                 onValueChange = { smbHost = it; updateDestination { d -> d.copy(smbHost = smbHost) } },
-                label = { Text("Host or IP") },
+                label = { Text(stringResource(R.string.sync_smb_host)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = smbShare,
                 onValueChange = { smbShare = it; updateDestination { d -> d.copy(smbShare = smbShare) } },
-                label = { Text("Share name") },
+                label = { Text(stringResource(R.string.sync_smb_share)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = smbPath,
                 onValueChange = { smbPath = it; updateDestination { d -> d.copy(smbPath = smbPath) } },
-                label = { Text("Path inside the share (optional)") },
+                label = { Text(stringResource(R.string.sync_smb_path)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = smbUser,
                 onValueChange = { smbUser = it; updateDestination { d -> d.copy(smbUsername = smbUser) } },
-                label = { Text("Username") },
+                label = { Text(stringResource(R.string.sync_username)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = smbPass,
                 onValueChange = { smbPass = it; updateDestination { d -> d.copy(smbPassword = smbPass) } },
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.sync_password)) },
                 singleLine = true,
                 visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -495,7 +523,7 @@ private fun SyncToPlexSection() {
             OutlinedTextField(
                 value = smbDomain,
                 onValueChange = { smbDomain = it; updateDestination { d -> d.copy(smbDomain = smbDomain) } },
-                label = { Text("Domain (optional)") },
+                label = { Text(stringResource(R.string.sync_smb_domain)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
@@ -503,11 +531,11 @@ private fun SyncToPlexSection() {
             OutlinedTextField(
                 value = webDavUrl,
                 onValueChange = { webDavUrl = it; updateDestination { d -> d.copy(webDavBaseUrl = webDavUrl) } },
-                label = { Text("WebDAV address") },
-                placeholder = { Text("https://nas.local:5006/photos") },
+                label = { Text(stringResource(R.string.sync_webdav_address)) },
+                placeholder = { Text(stringResource(R.string.sync_webdav_placeholder)) },
                 singleLine = true,
-                isError = isInsecureRemoteWebDavUrl(webDavUrl),
-                supportingText = if (isInsecureRemoteWebDavUrl(webDavUrl)) {
+                isError = isInsecureRemoteUrl(webDavUrl),
+                supportingText = if (isInsecureRemoteUrl(webDavUrl)) {
                     { Text(stringResource(R.string.webdav_insecure_warning)) }
                 } else null,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -515,14 +543,14 @@ private fun SyncToPlexSection() {
             OutlinedTextField(
                 value = webDavUser,
                 onValueChange = { webDavUser = it; updateDestination { d -> d.copy(webDavUsername = webDavUser) } },
-                label = { Text("Username") },
+                label = { Text(stringResource(R.string.sync_username)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(
                 value = webDavPass,
                 onValueChange = { webDavPass = it; updateDestination { d -> d.copy(webDavPassword = webDavPass) } },
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.sync_password)) },
                 singleLine = true,
                 visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -538,11 +566,11 @@ private fun SyncToPlexSection() {
                     testResult = null
                     scope.launch {
                         val result = ConnectionTester.test(destination, context.contentResolver, graph.uploadHttpClient)
-                        testResult = result.fold({ it }, { "Failed: ${it.message ?: "unknown error"}" })
+                        testResult = result.fold({ it }, { context.getString(R.string.sync_test_failed, it.message ?: unknownError) })
                         testing = false
                     }
                 },
-            ) { Text(if (testing) "Testing…" else "Test connection") }
+            ) { Text(stringResource(if (testing) R.string.sync_testing else R.string.sync_test_connection)) }
         }
         testResult?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
@@ -552,28 +580,28 @@ private fun SyncToPlexSection() {
         OutlinedTextField(
             value = serverFolderPath,
             onValueChange = { serverFolderPath = it; scope.launch { graph.uploadSettings.update { s -> s.copy(serverFolderPath = serverFolderPath) } } },
-            label = { Text("Library folder path on the server") },
-            supportingText = { Text("From Plex: Directory > Location > path. Narrows the rescan to this folder.") },
+            label = { Text(stringResource(R.string.sync_server_folder_path)) },
+            supportingText = { Text(stringResource(R.string.sync_server_folder_path_help)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = subFolderPattern,
             onValueChange = { subFolderPattern = it; scope.launch { graph.uploadSettings.update { s -> s.copy(subFolderPattern = subFolderPattern) } } },
-            label = { Text("Upload sub folder pattern") },
-            supportingText = { Text("Tokens: {device} {yyyy} {MM} {dd}") },
+            label = { Text(stringResource(R.string.sync_sub_folder_pattern)) },
+            supportingText = { Text(stringResource(R.string.sync_sub_folder_pattern_help)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         )
 
         Spacer(Modifier.height(16.dp))
         ListItem(
-            headlineContent = { Text("Automatically sync new photos") },
-            supportingContent = { Text("Back up new items from the albums below in the background") },
+            headlineContent = { Text(stringResource(R.string.sync_auto_sync)) },
+            supportingContent = { Text(stringResource(R.string.sync_auto_sync_summary)) },
             trailingContent = { Switch(checked = syncSettings.autoSyncEnabled, onCheckedChange = { setAutoSync(it) }) },
         )
         if (deviceAlbums.isNotEmpty()) {
-            Text("Albums to back up", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+            Text(stringResource(R.string.sync_albums_to_back_up), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                 items(deviceAlbums, key = { it.bucketId }) { album ->
                     val selected = album.bucketId in syncSettings.selectedBuckets
@@ -586,29 +614,29 @@ private fun SyncToPlexSection() {
                                 }
                             }
                         },
-                        label = { Text("${album.name} (${album.count})") },
+                        label = { Text(stringResource(R.string.sync_album_chip, album.name, album.count)) },
                     )
                 }
             }
         }
         ListItem(
-            headlineContent = { Text("Wi-Fi only") },
+            headlineContent = { Text(stringResource(R.string.sync_wifi_only)) },
             trailingContent = { Switch(checked = syncSettings.wifiOnly, onCheckedChange = { v -> scope.launch { graph.uploadSettings.update { it.copy(wifiOnly = v) } } }) },
         )
         ListItem(
-            headlineContent = { Text("Charging only") },
+            headlineContent = { Text(stringResource(R.string.sync_charging_only)) },
             trailingContent = { Switch(checked = syncSettings.chargingOnly, onCheckedChange = { v -> scope.launch { graph.uploadSettings.update { it.copy(chargingOnly = v) } } }) },
         )
 
         Spacer(Modifier.height(8.dp))
-        Button(onClick = { SyncScheduler.syncNow(context, syncSettings.wifiOnly, syncSettings.chargingOnly) }) { Text("Sync now") }
+        Button(onClick = { SyncScheduler.syncNow(context, syncSettings.wifiOnly, syncSettings.chargingOnly) }) { Text(stringResource(R.string.sync_now)) }
         val lastSync = syncSettings.lastSyncAt
         Text(
             if (lastSync > 0) {
                 val when_ = java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(lastSync))
-                "Last sync: $when_  ·  ${syncSettings.lastSyncUploaded} uploaded, ${syncSettings.lastSyncFailed} failed"
+                stringResource(R.string.sync_last_sync, when_, syncSettings.lastSyncUploaded, syncSettings.lastSyncFailed)
             } else {
-                "Never synced yet"
+                stringResource(R.string.sync_never_synced)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

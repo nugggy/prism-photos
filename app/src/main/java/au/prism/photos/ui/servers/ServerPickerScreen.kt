@@ -33,11 +33,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.domain.ConnectionMode
 import au.prism.photos.domain.PlexServer
 import au.prism.photos.ui.components.ErrorState
@@ -51,21 +53,21 @@ fun ServerPickerScreen(onSelected: () -> Unit) {
     val vm: ServerPickerViewModel = viewModel(factory = viewModelFactory { initializer { ServerPickerViewModel(graph) } })
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Choose a server") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.servers_choose_server)) }) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ConnectionModeChip("Auto", vm.connectionMode == ConnectionMode.AUTO) { vm.changeConnectionMode(ConnectionMode.AUTO) }
-                ConnectionModeChip("Same network", vm.connectionMode == ConnectionMode.LAN) { vm.changeConnectionMode(ConnectionMode.LAN) }
-                ConnectionModeChip("Remote", vm.connectionMode == ConnectionMode.REMOTE) { vm.changeConnectionMode(ConnectionMode.REMOTE) }
+                ConnectionModeChip(stringResource(R.string.servers_mode_auto), vm.connectionMode == ConnectionMode.AUTO) { vm.changeConnectionMode(ConnectionMode.AUTO) }
+                ConnectionModeChip(stringResource(R.string.servers_mode_lan), vm.connectionMode == ConnectionMode.LAN) { vm.changeConnectionMode(ConnectionMode.LAN) }
+                ConnectionModeChip(stringResource(R.string.servers_mode_remote), vm.connectionMode == ConnectionMode.REMOTE) { vm.changeConnectionMode(ConnectionMode.REMOTE) }
             }
             when {
                 vm.loading -> LoadingState()
                 vm.error != null -> ErrorState(vm.error!!, onRetry = { vm.load() })
-                vm.servers.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No servers found on this Plex account") }
+                vm.servers.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(stringResource(R.string.servers_none)) }
                 else -> LazyColumn(contentPadding = PaddingValues(16.dp)) {
                     items(vm.servers, key = { it.clientIdentifier }) { server ->
                         ServerRow(server, vm.statuses[server.clientIdentifier], onClick = { vm.select(server, onSelected) })
@@ -97,9 +99,9 @@ private fun ServerRow(server: PlexServer, status: ProbeStatus?, onClick: () -> U
                 Column {
                     Text(server.platform.ifBlank { "Plex Media Server" }, style = MaterialTheme.typography.bodySmall)
                     when (status) {
-                        is ProbeStatus.Ok -> Text("Connected · ${status.active.kind}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        is ProbeStatus.Ok -> Text(stringResource(R.string.servers_connected, status.active.kind.toString()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         is ProbeStatus.Failed -> Text(status.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                        ProbeStatus.Checking -> Text("Checking connection", style = MaterialTheme.typography.bodySmall)
+                        ProbeStatus.Checking -> Text(stringResource(R.string.servers_checking), style = MaterialTheme.typography.bodySmall)
                         null -> {}
                     }
                 }
@@ -107,7 +109,7 @@ private fun ServerRow(server: PlexServer, status: ProbeStatus?, onClick: () -> U
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (server.owned) {
-                        SuggestionChip(onClick = {}, label = { Text("Owned") }, colors = SuggestionChipDefaults.suggestionChipColors())
+                        SuggestionChip(onClick = {}, label = { Text(stringResource(R.string.servers_owned)) }, colors = SuggestionChipDefaults.suggestionChipColors())
                         Spacer(Modifier.width(8.dp))
                     }
                     when (status) {

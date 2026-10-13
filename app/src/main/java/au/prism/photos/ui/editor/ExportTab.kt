@@ -32,8 +32,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import kotlin.math.roundToInt
 
@@ -51,19 +53,19 @@ fun ExportTab(
     var quality by remember(settings.quality) { mutableStateOf(settings.quality.toFloat()) }
 
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text("Looks", style = MaterialTheme.typography.titleSmall, color = PlexGold)
+        Text(stringResource(R.string.editor_looks), style = MaterialTheme.typography.titleSmall, color = PlexGold)
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { showSaveDialog = true }) {
                 Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Save preset")
+                Text(stringResource(R.string.editor_save_preset))
             }
             OutlinedButton(onClick = { vm.copyEdits() }) {
                 Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Copy edits")
+                Text(stringResource(R.string.editor_copy_edits))
             }
             OutlinedButton(onClick = { vm.pasteEdits() }, enabled = hasClipboard) {
                 Icon(Icons.Filled.ContentPaste, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Paste edits")
+                Text(stringResource(R.string.editor_paste_edits))
             }
         }
         if (presets.isNotEmpty()) {
@@ -74,7 +76,7 @@ fun ExportTab(
                         label = { Text(preset.name) },
                         trailingIcon = {
                             IconButton(onClick = { vm.deletePreset(preset.id) }, modifier = Modifier.padding(0.dp)) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Delete preset", modifier = Modifier.padding(2.dp))
+                                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.editor_delete_preset), modifier = Modifier.padding(2.dp))
                             }
                         },
                     )
@@ -84,7 +86,7 @@ fun ExportTab(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        Text("Format", style = MaterialTheme.typography.titleSmall, color = PlexGold)
+        Text(stringResource(R.string.editor_format), style = MaterialTheme.typography.titleSmall, color = PlexGold)
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExportFormat.entries.forEach { fmt ->
                 FilterChip(selected = settings.format == fmt, onClick = { vm.setExportSettings(settings.copy(format = fmt)) }, label = { Text(fmt.label) })
@@ -93,7 +95,7 @@ fun ExportTab(
 
         if (settings.format != ExportFormat.PNG) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Quality", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.editor_quality), style = MaterialTheme.typography.labelMedium)
                 Text("${quality.roundToInt()}", style = MaterialTheme.typography.labelMedium, color = PlexGold)
             }
             Slider(
@@ -105,21 +107,21 @@ fun ExportTab(
             )
         }
 
-        Text("Size", style = MaterialTheme.typography.titleSmall, color = PlexGold, modifier = Modifier.padding(top = 4.dp))
+        Text(stringResource(R.string.editor_export_size), style = MaterialTheme.typography.titleSmall, color = PlexGold, modifier = Modifier.padding(top = 4.dp))
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExportSizeChoice.entries.forEach { size ->
-                FilterChip(selected = settings.size == size, onClick = { vm.setExportSettings(settings.copy(size = size)) }, label = { Text(size.label) })
+                FilterChip(selected = settings.size == size, onClick = { vm.setExportSettings(settings.copy(size = size)) }, label = { Text(size.longestEdge?.let { stringResource(R.string.editor_export_size_px, it) } ?: stringResource(R.string.editor_export_size_original)) })
             }
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onSaveCopy, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Filled.Save, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Save copy")
+                Text(stringResource(R.string.editor_save_copy))
             }
             OutlinedButton(onClick = onShare, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Share")
+                Text(stringResource(R.string.action_share))
             }
         }
     }
@@ -128,14 +130,14 @@ fun ExportTab(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            title = { Text("Save preset") },
+            title = { Text(stringResource(R.string.editor_save_preset)) },
             text = {
-                OutlinedTextField(value = name, onValueChange = { name = it }, placeholder = { Text("Preset name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, placeholder = { Text(stringResource(R.string.editor_preset_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             },
             confirmButton = {
-                TextButton(onClick = { vm.savePreset(name); showSaveDialog = false }) { Text("Save", color = PlexGold) }
+                TextButton(onClick = { vm.savePreset(name); showSaveDialog = false }) { Text(stringResource(R.string.action_save), color = PlexGold) }
             },
-            dismissButton = { TextButton(onClick = { showSaveDialog = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showSaveDialog = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

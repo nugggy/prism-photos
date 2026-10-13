@@ -32,6 +32,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import au.prism.photos.PrismApp
+import au.prism.photos.R
 import au.prism.photos.util.Downloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -103,7 +104,7 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
             _sourcePhase.value = SourcePhase.Ready(uri, durationMs, width, height)
             loadFilmstrip(uri, durationMs)
         } catch (e: Exception) {
-            _sourcePhase.value = SourcePhase.Error(e.message ?: "Couldn't load this video")
+            _sourcePhase.value = SourcePhase.Error(e.message ?: context.getString(R.string.videoeditor_load_failed))
         }
     }
 
@@ -127,7 +128,7 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
         val dest = File(dir, "plex_${itemId.replace(Regex("[^A-Za-z0-9_-]"), "_")}.mp4")
         if (!dest.exists() || dest.length() == 0L) {
             _sourcePhase.value = SourcePhase.Downloading(0f)
-            Downloader.download(graph.media.downloadUrl(item), dest) { bytes, total ->
+            Downloader.downloadAwait(graph.media.downloadUrl(item), dest) { bytes, total ->
                 if (total > 0) _sourcePhase.value = SourcePhase.Downloading((bytes.toFloat() / total).coerceIn(0f, 1f))
             }
         }
@@ -248,9 +249,9 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) { saveFrameAsPhoto(ready.uri, atMs) }
-                _message.value = "Frame saved to Pictures"
+                _message.value = context.getString(R.string.videoeditor_frame_saved)
             } catch (e: Exception) {
-                _message.value = e.message ?: "Couldn't save the frame"
+                _message.value = e.message ?: context.getString(R.string.videoeditor_frame_save_failed)
             }
         }
     }
@@ -320,7 +321,7 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
                 transformer.start(editedItem, outFile.absolutePath)
                 pollProgress(transformer)
             } catch (e: Exception) {
-                _exportPhase.value = ExportPhase.Failed(e.message ?: "Export failed")
+                _exportPhase.value = ExportPhase.Failed(e.message ?: context.getString(R.string.videoeditor_export_failed))
             }
         }
     }
@@ -392,7 +393,7 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
             val uri = withContext(Dispatchers.IO) { copyToMediaStore(outFile) }
             _exportPhase.value = ExportPhase.Done(uri, outFile)
         } catch (e: Exception) {
-            _exportPhase.value = ExportPhase.Failed(e.message ?: "Couldn't save the video")
+            _exportPhase.value = ExportPhase.Failed(e.message ?: context.getString(R.string.videoeditor_save_failed))
         }
     }
 
@@ -435,13 +436,13 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
 
     private fun readableError(exception: ExportException): String = when (exception.errorCode) {
         ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED -> "This device's codec doesn't support that setting"
+        ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED -> context.getString(R.string.videoeditor_error_codec_unsupported)
         ExportException.ERROR_CODE_DECODER_INIT_FAILED,
-        ExportException.ERROR_CODE_ENCODER_INIT_FAILED -> "Couldn't start the video codec"
-        ExportException.ERROR_CODE_IO_FILE_NOT_FOUND -> "The source file couldn't be found"
+        ExportException.ERROR_CODE_ENCODER_INIT_FAILED -> context.getString(R.string.videoeditor_error_codec_start)
+        ExportException.ERROR_CODE_IO_FILE_NOT_FOUND -> context.getString(R.string.videoeditor_error_source_missing)
         ExportException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        ExportException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Lost connection while exporting"
-        else -> exception.message ?: "Export failed"
+        ExportException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> context.getString(R.string.videoeditor_error_connection_lost)
+        else -> exception.message ?: context.getString(R.string.videoeditor_export_failed)
     }
 
     private fun timestamp(): String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())

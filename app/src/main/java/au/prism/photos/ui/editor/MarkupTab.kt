@@ -1,5 +1,6 @@
 package au.prism.photos.ui.editor
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,7 +85,7 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
                         if (t == MarkupTool.TEXT) showTextDialog = true
                         if (t == MarkupTool.EMOJI) showEmojiDialog = true
                     },
-                    label = { Text(toolLabel(t)) },
+                    label = { Text(stringResource(toolLabelRes(t))) },
                 )
             }
         }
@@ -102,7 +104,7 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
             var size by remember(tool) { mutableStateOf(brushSize) }
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(if (tool == MarkupTool.BLUR_BRUSH) "Brush size" else "Size", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(if (tool == MarkupTool.BLUR_BRUSH) R.string.editor_markup_brush_size else R.string.editor_markup_size), style = MaterialTheme.typography.labelMedium)
                     Text(size.roundToInt().toString(), style = MaterialTheme.typography.labelMedium, color = PlexGold)
                 }
                 Slider(
@@ -118,7 +120,7 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
             var alpha by remember { mutableStateOf(brushAlpha) }
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Highlighter opacity", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.editor_markup_highlighter_opacity), style = MaterialTheme.typography.labelMedium)
                     Text("${(alpha * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium, color = PlexGold)
                 }
                 Slider(
@@ -133,13 +135,13 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
         if (tool == MarkupTool.BLUR_BRUSH) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = pixelateBrush, onCheckedChange = { vm.pixelateBrush.value = it })
-                Text("Pixelate (unticked = blur)", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.editor_markup_pixelate), style = MaterialTheme.typography.labelMedium)
             }
         }
 
         TextButton(onClick = { vm.clearMarkup() }, enabled = markup.isNotEmpty()) {
             Icon(Icons.Filled.Clear, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-            Text("Clear all markup")
+            Text(stringResource(R.string.editor_markup_clear_all))
         }
     }
 
@@ -162,7 +164,7 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
     if (showEmojiDialog) {
         AlertDialog(
             onDismissRequest = { showEmojiDialog = false; vm.setMarkupTool(MarkupTool.NONE) },
-            title = { Text("Add a sticker") },
+            title = { Text(stringResource(R.string.editor_markup_add_sticker)) },
             text = {
                 LazyVerticalGrid(columns = GridCells.Fixed(6)) {
                     items(emojiChoices) { emoji ->
@@ -178,22 +180,23 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showEmojiDialog = false; vm.setMarkupTool(MarkupTool.NONE) }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { showEmojiDialog = false; vm.setMarkupTool(MarkupTool.NONE) }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
 
-private fun toolLabel(tool: MarkupTool): String = when (tool) {
-    MarkupTool.PEN -> "Pen"
-    MarkupTool.HIGHLIGHTER -> "Highlighter"
-    MarkupTool.ARROW -> "Arrow"
-    MarkupTool.RECTANGLE -> "Rectangle"
-    MarkupTool.ELLIPSE -> "Ellipse"
-    MarkupTool.TEXT -> "Text"
-    MarkupTool.EMOJI -> "Sticker"
-    MarkupTool.BLUR_BRUSH -> "Blur/pixelate"
-    MarkupTool.ERASER -> "Eraser"
-    MarkupTool.NONE -> "None"
+@StringRes
+private fun toolLabelRes(tool: MarkupTool): Int = when (tool) {
+    MarkupTool.PEN -> R.string.editor_markup_tool_pen
+    MarkupTool.HIGHLIGHTER -> R.string.editor_markup_tool_highlighter
+    MarkupTool.ARROW -> R.string.editor_markup_tool_arrow
+    MarkupTool.RECTANGLE -> R.string.editor_markup_tool_rectangle
+    MarkupTool.ELLIPSE -> R.string.editor_markup_tool_ellipse
+    MarkupTool.TEXT -> R.string.editor_markup_tool_text
+    MarkupTool.EMOJI -> R.string.editor_markup_tool_sticker
+    MarkupTool.BLUR_BRUSH -> R.string.editor_markup_tool_blur
+    MarkupTool.ERASER -> R.string.editor_markup_tool_eraser
+    MarkupTool.NONE -> R.string.editor_markup_tool_none
 }
 
 @Composable
@@ -204,13 +207,13 @@ private fun AddTextDialog(onDismiss: () -> Unit, onConfirm: (String, Color, Floa
     var pill by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add text") },
+        title = { Text(stringResource(R.string.editor_markup_add_text)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    placeholder = { Text("Your caption") },
+                    placeholder = { Text(stringResource(R.string.editor_markup_caption_placeholder)) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -222,7 +225,7 @@ private fun AddTextDialog(onDismiss: () -> Unit, onConfirm: (String, Color, Floa
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Font size", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.editor_markup_font_size), style = MaterialTheme.typography.labelMedium)
                     Slider(
                         value = size, onValueChange = { size = it }, valueRange = 0.03f..0.14f,
                         colors = SliderDefaults.colors(thumbColor = PlexGold, activeTrackColor = PlexGold),
@@ -231,13 +234,13 @@ private fun AddTextDialog(onDismiss: () -> Unit, onConfirm: (String, Color, Floa
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = pill, onCheckedChange = { pill = it })
-                    Text("Background pill", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.editor_markup_background_pill), style = MaterialTheme.typography.labelMedium)
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (text.isNotBlank()) onConfirm(text, colour, size, pill) else onDismiss() }) { Text("Add", color = PlexGold) }
+            TextButton(onClick = { if (text.isNotBlank()) onConfirm(text, colour, size, pill) else onDismiss() }) { Text(stringResource(R.string.editor_markup_add), color = PlexGold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

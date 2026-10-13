@@ -13,7 +13,8 @@ object InsecureUrl {
     fun isInsecureRemoteUrl(url: String): Boolean {
         val trimmed = url.trim()
         if (!trimmed.startsWith("http://", ignoreCase = true)) return false
-        val host = hostOf(trimmed) ?: return true
+        // No host yet (for example "http://" while it is being typed): nothing can be sent anywhere.
+        val host = hostOf(trimmed) ?: return false
         return !isLocalHost(host)
     }
 
@@ -54,5 +55,5 @@ object InsecureUrl {
     }
 }
 
-/** Shorthand for [InsecureUrl.isInsecureRemoteUrl], for the Settings screen warning. */
+/** Shorthand for [InsecureUrl.isInsecureRemoteUrl], used by the Settings screen WebDAV warning. */
 fun isInsecureRemoteUrl(url: String): Boolean = InsecureUrl.isInsecureRemoteUrl(url)

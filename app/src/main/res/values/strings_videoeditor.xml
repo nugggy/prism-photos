@@ -8,11 +8,22 @@
     <string name="videoeditor_tab_speed">Speed</string>
     <string name="videoeditor_tab_colour">Colour</string>
     <string name="videoeditor_tab_export">Export</string>
+    <string name="videoeditor_preparing">Preparing</string>
+    <string name="videoeditor_downloading">Downloading clip %1$d%%</string>
+    <string name="videoeditor_play">Play</string>
+    <string name="videoeditor_pause">Pause</string>
+    <string name="videoeditor_discard_title">Discard changes?</string>
+    <string name="videoeditor_discard_body">Your edits haven\'t been saved.</string>
+
+    <!-- Trim and audio -->
+    <string name="videoeditor_selected">Selected: %1$s</string>
     <string name="videoeditor_save_frame">Save frame as photo</string>
     <string name="videoeditor_frame_saved">Frame saved to Pictures</string>
-    <string name="videoeditor_loop_preview">Loop preview</string>
+    <string name="videoeditor_frame_save_failed">Couldn\'t save the frame</string>
     <string name="videoeditor_audio_muted">Audio muted</string>
     <string name="videoeditor_audio_on">Audio on</string>
+
+    <!-- Transform -->
     <string name="videoeditor_rotate">Rotate</string>
     <string name="videoeditor_flip_horizontal">Flip H</string>
     <string name="videoeditor_flip_vertical">Flip V</string>
@@ -20,16 +31,31 @@
     <string name="videoeditor_resolution_original">Original</string>
     <string name="videoeditor_resolution_1080">1080p</string>
     <string name="videoeditor_resolution_720">720p</string>
+
+    <!-- Speed and colour -->
+    <string name="videoeditor_speed_value">Speed: %1$sx</string>
+    <string name="videoeditor_speed_preset">%1$sx</string>
+    <string name="videoeditor_brightness">Brightness</string>
+    <string name="videoeditor_contrast">Contrast</string>
+    <string name="videoeditor_saturation">Saturation</string>
+    <string name="videoeditor_hue">Hue</string>
+    <string name="videoeditor_warmth">Warmth</string>
     <string name="videoeditor_reset_colour">Reset colour</string>
+    <string name="videoeditor_loop_preview">Loop preview</string>
+
+    <!-- Export -->
     <string name="videoeditor_export">Export to Plex Gallery</string>
-    <string name="videoeditor_exporting">Exporting</string>
-    <string name="videoeditor_export_cancel">Cancel</string>
+    <string name="videoeditor_exporting">Exporting %1$d%%</string>
     <string name="videoeditor_export_saved">Saved to Movies/Plex Gallery</string>
-    <string name="videoeditor_share">Share</string>
-    <string name="videoeditor_done">Done</string>
+    <string name="videoeditor_share_video">Share video</string>
     <string name="videoeditor_retry">Retry</string>
-    <string name="videoeditor_discard_title">Discard changes?</string>
-    <string name="videoeditor_discard_body">Your edits haven\'t been saved.</string>
-    <string name="videoeditor_discard">Discard</string>
-    <string name="videoeditor_keep_editing">Keep editing</string>
+
+    <!-- Errors -->
+    <string name="videoeditor_load_failed">Couldn\'t load this video</string>
+    <string name="videoeditor_export_failed">Export failed</string>
+    <string name="videoeditor_save_failed">Couldn\'t save the video</string>
+    <string name="videoeditor_error_codec_unsupported">This device\'s codec doesn\'t support that setting</string>
+    <string name="videoeditor_error_codec_start">Couldn\'t start the video codec</string>
+    <string name="videoeditor_error_source_missing">The source file couldn\'t be found</string>
+    <string name="videoeditor_error_connection_lost">Lost connection while exporting</string>
 </resources>
