@@ -28,7 +28,7 @@ interface SingleItem {
   error: string | null
 }
 
-const OVERLAY_STYLE: React.CSSProperties = { position: 'fixed', inset: 0, background: '#000', color: '#fff', zIndex: 50, display: 'flex', flexDirection: 'column' }
+const OVERLAY_STYLE: React.CSSProperties = { position: 'fixed', inset: 0, background: '#000', color: '#fff', zIndex: 50, display: 'flex', flexDirection: 'column', outline: 'none' }
 
 export function Viewer(): React.ReactElement {
   const { itemId = '' } = useParams()
@@ -116,6 +116,14 @@ export function Viewer(): React.ReactElement {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [next, prev, close, dialogOpen])
+
+  // The list page stays mounted underneath, so take focus from the grid cell that opened the
+  // viewer (otherwise the grid's own arrow handling eats the keys) and hand it back on close.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    containerRef.current?.focus({ preventScroll: true })
+    return () => opener?.focus({ preventScroll: true })
+  }, [])
 
   const advanceRef = useRef<() => void>(() => {})
   useEffect(() => {
@@ -269,7 +277,7 @@ export function Viewer(): React.ReactElement {
   const renaming = renamingId === item.id
 
   return (
-    <div ref={containerRef} style={OVERLAY_STYLE}>
+    <div ref={containerRef} tabIndex={-1} style={OVERLAY_STYLE}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(0,0,0,0.6)', gap: 8 }}>
         <button className="btn" onClick={close} aria-label="Close viewer">
           <Icon name="close" size={18} />
