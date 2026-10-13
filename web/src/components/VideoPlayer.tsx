@@ -7,6 +7,7 @@ import { getClientIdentifier } from '../plex/headers'
 import { formatDuration } from '../lib/format'
 import { Icon } from './Icon'
 import type { TranscodePreference } from '../state/settingsStore'
+import { isEditableTarget, isInsideDialog } from '../lib/keyboard'
 
 const POSITION_KEY_PREFIX = 'prism.videoPosition.'
 
@@ -50,6 +51,7 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
   const [loop, setLoop] = useState(false)
   const [usingHls, setUsingHls] = useState(transcodePreference === 'hls')
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
 
   const stopTranscode = useCallback(() => {
     void fetch(buildHlsTranscodeStopUrl(server, sessionRef.current)).catch(() => {})
@@ -74,9 +76,23 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
       if (Hls.isSupported()) {
         const hls = new Hls()
         hlsRef.current = hls
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return
+          hls.destroy()
+          if (hlsRef.current === hls) hlsRef.current = null
+          setPlaybackError('This video could not be played.')
+        })
         hls.loadSource(url)
         hls.attachMedia(video)
       } else {
+        // Safari plays HLS natively. Any further error is final: restarting would start yet
+        // another transcode session on the server.
+        video.onerror = () => {
+          video.onerror = null
+          video.removeAttribute('src')
+          video.load()
+          setPlaybackError('This video could not be played.')
+        }
         video.src = url
       }
     },
@@ -87,12 +103,16 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
     const video = videoRef.current
     if (!video) return
 
+    setPlaybackError(null)
     if (transcodePreference === 'hls') {
       startHls(video)
       setUsingHls(true)
     } else {
       startDirect(video)
+      // Fall back to a transcode once. startHls replaces this handler (native HLS) or uses
+      // hls.js, so a failing transcode cannot loop back into here.
       video.onerror = () => {
+        video.onerror = null
         startHls(video)
         setUsingHls(true)
       }
@@ -101,6 +121,7 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
     video.currentTime = loadPosition(item.id)
 
     return () => {
+      video.onerror = null
       hlsRef.current?.destroy()
       hlsRef.current = null
       stopTranscode()
@@ -113,6 +134,8 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
     if (!video) return
     const time = video.currentTime
     stopTranscode()
+    video.onerror = null
+    setPlaybackError(null)
     if (usingHls) {
       startDirect(video)
       setUsingHls(false)
@@ -164,20 +187,23 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
   }, [duration])
 
   useEffect(() => {
+    // Capture phase, so this runs before the viewer's own window listener. Keys the player uses
+    // are marked with preventDefault, which tells the viewer not to also step to another item.
     const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT') return
+      if (e.defaultPrevented || isEditableTarget(e.target) || isInsideDialog(e.target) || e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === ' ' || e.key === 'k' || e.key === 'K') {
         togglePlay()
         e.preventDefault()
       } else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowLeft') {
         seekBy(-10)
+        e.preventDefault()
       } else if (e.key === 'l' || e.key === 'L' || e.key === 'ArrowRight') {
         seekBy(10)
+        e.preventDefault()
       }
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    window.addEventListener('keydown', handler, true)
+    return () => window.removeEventListener('keydown', handler, true)
   }, [togglePlay, seekBy])
 
   useEffect(() => {
@@ -216,6 +242,11 @@ export function VideoPlayer({ item, server, transcodePreference, autoPlay }: Vid
         playsInline
         onClick={togglePlay}
       />
+      {playbackError && (
+        <div role="alert" style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.75)', padding: '8px 14px', borderRadius: 8 }}>
+          {playbackError}
+        </div>
+      )}
       <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
         <div style={{ flex: 1 }} onDoubleClick={() => handleDoubleClickSide('left')} />
         <div style={{ flex: 1 }} onDoubleClick={() => handleDoubleClickSide('right')} />

@@ -332,6 +332,18 @@ input:focus-visible,
   }
 }
 
+/* Error and info messages sit at the top so they never cover the update toast or the viewer controls. */
+.toast.toast-message {
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  bottom: auto;
+  z-index: 300;
+  max-width: calc(100% - 32px);
+}
+
+.toast.toast-error {
+  border-color: var(--danger);
+}
+
 .month-header {
   position: sticky;
   top: 0;

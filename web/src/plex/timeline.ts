@@ -45,10 +45,14 @@ export function groupByMonth(items: MediaItem[]): MonthGroup[] {
   return groups
 }
 
-/** Removes items whose id is in the locked set, used to hide locked items everywhere else. */
-export function filterLocked(items: MediaItem[], lockedIds: ReadonlySet<string>): MediaItem[] {
-  if (lockedIds.size === 0) return items
-  return items.filter((item) => !lockedIds.has(item.id))
+/**
+ * Removes locked items, used to hide them everywhere else. An item is also hidden when its
+ * folder album (its direct Plex parent) is locked. Items further down in nested sub-albums of a
+ * locked album are not caught here, because Plex only reports the direct parent per item.
+ */
+export function filterLocked(items: MediaItem[], lockedIds: ReadonlySet<string>, lockedAlbumIds: ReadonlySet<string> = new Set()): MediaItem[] {
+  if (lockedIds.size === 0 && lockedAlbumIds.size === 0) return items
+  return items.filter((item) => !lockedIds.has(item.id) && !(item.albumId && lockedAlbumIds.has(item.albumId)))
 }
 
 /** De-duplicates by id, keeping the first occurrence (used when merging paged results). */

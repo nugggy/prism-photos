@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchTimeline } from '../plex/api'
 import type { MediaItem } from '../plex/model'
-import { useServer } from './useServer'
+import { useServer, useServerScope } from './useServer'
 import { useSessionStore } from '../state/sessionStore'
 import { getCachedTimeline, setCachedTimeline } from './cache'
 
@@ -17,6 +17,7 @@ export interface UseTimelineResult {
 export function useTimeline(): UseTimelineResult {
   const server = useServer()
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
+  const scope = useServerScope()
   const [items, setItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -25,7 +26,7 @@ export function useTimeline(): UseTimelineResult {
 
   const load = useCallback(
     async (background: boolean) => {
-      if (!server || !sectionKey) {
+      if (!server || !sectionKey || !scope) {
         setLoading(false)
         return
       }
@@ -37,7 +38,7 @@ export function useTimeline(): UseTimelineResult {
         if (requestId.current !== myId) return
         setItems(fresh)
         setError(null)
-        void setCachedTimeline(sectionKey, fresh)
+        void setCachedTimeline(scope, sectionKey, fresh)
       } catch (e) {
         if (requestId.current === myId) {
           setError(e instanceof Error ? e.message : 'Failed to load photos.')
@@ -49,17 +50,17 @@ export function useTimeline(): UseTimelineResult {
         }
       }
     },
-    [server, sectionKey],
+    [server, sectionKey, scope],
   )
 
   useEffect(() => {
     let cancelled = false
-    if (!sectionKey) {
+    if (!sectionKey || !scope) {
       setLoading(false)
       return
     }
     setLoading(true)
-    void getCachedTimeline(sectionKey).then((cached) => {
+    void getCachedTimeline(scope, sectionKey).then((cached) => {
       if (cancelled) return
       if (cached && cached.length > 0) {
         setItems(cached)
@@ -73,7 +74,7 @@ export function useTimeline(): UseTimelineResult {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionKey, server?.baseUrl])
+  }, [sectionKey, scope, server?.baseUrl])
 
   const refresh = useCallback(() => void load(false), [load])
 

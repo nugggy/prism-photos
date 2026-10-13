@@ -1,51 +1,47 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useTimeline } from '../lib/useTimeline'
 import { useServer } from '../lib/useServer'
 import { useSelection } from '../lib/useSelection'
+import { useItemList } from '../lib/useItemList'
+import { downloadItems, lockItemsOrExplain, reportBulkFailure, runForEach } from '../lib/bulk'
+import { appItemLink, viewerPath, type ViewerContext } from '../lib/viewerContext'
 import { MediaGrid } from '../components/MediaGrid'
 import { SelectionBar } from '../components/SelectionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../components/ShareSheet'
 import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
-import { useLockStore } from '../state/lockStore'
 import { useSettingsStore } from '../state/settingsStore'
-import { useViewerListStore } from '../state/viewerListStore'
-import { filterLocked } from '../plex/timeline'
 import { deleteItem, rateItem } from '../plex/api'
 import { buildDownloadUrl } from '../plex/urls'
 import type { MediaItem } from '../plex/model'
-import { downloadUrl } from '../lib/download'
+
+const BASE_PATH = '/photos'
 
 export function Photos(): React.ReactElement {
   const { items, loading, refreshing, error, refresh } = useTimeline()
   const server = useServer()
-  const lockedItemIds = useLockStore((s) => s.lockedItemIds)
-  const lockItem = useLockStore((s) => s.lockItem)
   const density = useSettingsStore((s) => s.density)
   const setDensity = useSettingsStore((s) => s.setDensity)
-  const setViewerList = useViewerListStore((s) => s.setList)
   const navigate = useNavigate()
 
-  const [overrides, setOverrides] = useState<Record<string, Partial<MediaItem>>>({})
+  const list = useItemList(items)
+  const visibleItems = list.visible
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showAddToAlbum, setShowAddToAlbum] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const visibleItems = useMemo(() => {
-    const withOverrides = items.map((it) => (overrides[it.id] ? { ...it, ...overrides[it.id] } : it))
-    return filterLocked(withOverrides, new Set(lockedItemIds))
-  }, [items, overrides, lockedItemIds])
-
   const selection = useSelection(visibleItems)
+
+  const viewerContext = useMemo<ViewerContext>(
+    () => ({ items: visibleItems, basePath: BASE_PATH, onItemChanged: (id, patch) => list.patch([id], patch), onItemsRemoved: list.remove }),
+    [visibleItems, list],
+  )
 
   if (!server) return <div className="page">Not connected.</div>
 
-  const openViewer = (_item: MediaItem, index: number) => {
-    setViewerList('photos', visibleItems)
-    navigate(`/view/photos/${index}`)
-  }
+  const openViewer = (item: MediaItem) => navigate(viewerPath(BASE_PATH, item.id))
 
   const selectedItems = visibleItems.filter((i) => selection.selectedIds.has(i.id))
 
@@ -53,12 +49,12 @@ export function Photos(): React.ReactElement {
     setBusy(true)
     const makeFav = !selectedItems.every((i) => i.favourite)
     try {
-      await Promise.all(selectedItems.map((i) => rateItem(server, i.id, makeFav)))
-      setOverrides((prev) => {
-        const next = { ...prev }
-        selectedItems.forEach((i) => (next[i.id] = { ...next[i.id], favourite: makeFav }))
-        return next
-      })
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => rateItem(server, id, makeFav),
+      )
+      list.patch(result.succeeded, { favourite: makeFav })
+      reportBulkFailure(result, makeFav ? 'favourite' : 'unfavourite')
     } finally {
       setBusy(false)
       selection.clear()
@@ -66,19 +62,24 @@ export function Photos(): React.ReactElement {
   }
 
   const handleLock = () => {
-    selectedItems.forEach((i) => lockItem(i.id))
-    selection.clear()
+    if (lockItemsOrExplain(selectedItems.map((i) => i.id))) selection.clear()
   }
 
   const handleDownload = () => {
-    selectedItems.forEach((i) => downloadUrl(buildDownloadUrl(server, i.partKey), i.title))
+    downloadItems(server, selectedItems)
     selection.clear()
   }
 
   const handleDelete = async () => {
     setBusy(true)
     try {
-      await Promise.all(selectedItems.map((i) => deleteItem(server, i.id)))
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => deleteItem(server, id),
+      )
+      list.remove(result.succeeded)
+      reportBulkFailure(result, 'delete')
+      // Reload so the grid matches the server even when only some deletes went through.
       refresh()
     } finally {
       setBusy(false)
@@ -153,12 +154,14 @@ export function Photos(): React.ReactElement {
       {showShare && selectedItems.length === 1 && server && (
         <ShareSheet
           title={selectedItems[0].title}
-          link={`${window.location.origin}${window.location.pathname}#/view/photos/0`}
+          link={appItemLink(BASE_PATH, selectedItems[0].id)}
           fileUrl={buildDownloadUrl(server, selectedItems[0].partKey)}
           fileName={selectedItems[0].title}
           onClose={() => setShowShare(false)}
         />
       )}
+
+      <Outlet context={viewerContext} />
     </div>
   )
 }

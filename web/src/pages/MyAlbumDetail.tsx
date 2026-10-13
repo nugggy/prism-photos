@@ -1,31 +1,28 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { useServer } from '../lib/useServer'
 import { useSessionStore } from '../state/sessionStore'
-import { useLockStore } from '../state/lockStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { useSelection } from '../lib/useSelection'
-import { useViewerListStore } from '../state/viewerListStore'
+import { useItemList } from '../lib/useItemList'
+import { downloadItems } from '../lib/bulk'
+import { appItemLink, viewerPath, type ViewerContext } from '../lib/viewerContext'
 import { deleteMyAlbum, fetchMyAlbumItems, fetchMyAlbums, removeFromMyAlbum, renameMyAlbum } from '../plex/api'
 import { buildDownloadUrl } from '../plex/urls'
 import type { Album, MediaItem } from '../plex/model'
-import { filterLocked } from '../plex/timeline'
 import { MediaGrid } from '../components/MediaGrid'
 import { SelectionBar } from '../components/SelectionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../components/ShareSheet'
 import { Icon } from '../components/Icon'
-import { downloadUrl } from '../lib/download'
 
 export function MyAlbumDetail(): React.ReactElement {
   const { id } = useParams()
   const navigate = useNavigate()
   const server = useServer()
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
-  const lockedItemIds = useLockStore((s) => s.lockedItemIds)
   const density = useSettingsStore((s) => s.density)
   const setDensity = useSettingsStore((s) => s.setDensity)
-  const setViewerList = useViewerListStore((s) => s.setList)
 
   const [album, setAlbum] = useState<Album | null>(null)
   const [items, setItems] = useState<MediaItem[]>([])
@@ -57,22 +54,26 @@ export function MyAlbumDetail(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server, sectionKey, id])
 
-  const visibleItems = filterLocked(items, new Set(lockedItemIds))
+  const list = useItemList(items)
+  const visibleItems = list.visible
   const selection = useSelection(visibleItems)
+  const basePath = `/my-albums/${id ?? ''}`
+
+  const viewerContext = useMemo<ViewerContext>(
+    () => ({ items: visibleItems, basePath, onItemChanged: (itemId, patch) => list.patch([itemId], patch), onItemsRemoved: list.remove }),
+    [visibleItems, basePath, list],
+  )
 
   if (!server || !sectionKey || !id) return <div className="page">Not connected.</div>
 
   const readOnly = album?.readOnly === true
 
-  const openViewer = (_item: MediaItem, index: number) => {
-    setViewerList(`myalbum:${id}`, visibleItems)
-    navigate(`/view/myalbum:${id}/${index}`)
-  }
+  const openViewer = (item: MediaItem) => navigate(viewerPath(basePath, item.id))
 
   const selectedItems = visibleItems.filter((i) => selection.selectedIds.has(i.id))
 
   const handleDownload = () => {
-    selectedItems.forEach((i) => downloadUrl(buildDownloadUrl(server, i.partKey), i.title))
+    downloadItems(server, selectedItems)
     selection.clear()
   }
 
@@ -195,6 +196,7 @@ export function MyAlbumDetail(): React.ReactElement {
           onToggleSelect={selection.toggle}
           onOpen={openViewer}
           selectionMode={selection.selectionMode}
+          groupByMonth={false}
         />
       )}
 
@@ -231,12 +233,14 @@ export function MyAlbumDetail(): React.ReactElement {
       {showShare && selectedItems.length === 1 && (
         <ShareSheet
           title={selectedItems[0].title}
-          link={`${window.location.origin}${window.location.pathname}#/view/myalbum:${id}/0`}
+          link={appItemLink(basePath, selectedItems[0].id)}
           fileUrl={buildDownloadUrl(server, selectedItems[0].partKey)}
           fileName={selectedItems[0].title}
           onClose={() => setShowShare(false)}
         />
       )}
+
+      <Outlet context={viewerContext} />
     </div>
   )
 }

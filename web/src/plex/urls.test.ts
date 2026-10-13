@@ -7,9 +7,19 @@ import {
   buildOriginalUrl,
   buildPlexWebLink,
   buildThumbUrl,
+  pickThumbSize,
+  THUMB_SIZES,
 } from './urls'
 
 const server = { baseUrl: 'https://192-168-1-20.abcdef.plex.direct:32400/', token: 'TOKEN123' }
+
+describe('pickThumbSize', () => {
+  it('picks the smallest fixed size covering the cell on this display', () => {
+    expect(pickThumbSize(150, 1)).toBe(200)
+    expect(pickThumbSize(150, 2)).toBe(320)
+    expect(pickThumbSize(300, 3)).toBe(THUMB_SIZES[THUMB_SIZES.length - 1])
+  })
+})
 
 describe('buildThumbUrl', () => {
   it('builds a transcoder thumbnail URL with dimensions and token', () => {

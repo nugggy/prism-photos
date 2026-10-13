@@ -4,6 +4,7 @@ import { useSessionStore } from '../state/sessionStore'
 import { addToMyAlbum, createMyAlbum, fetchMyAlbums } from '../plex/api'
 import type { Album } from '../plex/model'
 import { Icon } from './Icon'
+import { useDialogFocus } from '../lib/useDialogFocus'
 
 export interface AddToAlbumDialogProps {
   /** Rating keys of the item(s) to add. */
@@ -25,6 +26,7 @@ export function AddToAlbumDialog({ itemIds, onClose, onAdded }: AddToAlbumDialog
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [confirmation, setConfirmation] = useState<string | null>(null)
+  const { ref, titleId } = useDialogFocus(onClose)
 
   useEffect(() => {
     if (!server) return
@@ -78,14 +80,22 @@ export function AddToAlbumDialog({ itemIds, onClose, onAdded }: AddToAlbumDialog
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add to album"
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}
       onClick={onClose}
     >
-      <div className="card" style={{ width: 360, maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginTop: 0, fontSize: 18 }}>Add to album</h2>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="card"
+        style={{ width: 360, maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', outline: 'none' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id={titleId} style={{ marginTop: 0, fontSize: 18 }}>
+          Add to album
+        </h2>
         {!confirmation && <p className="muted" style={{ marginTop: -8 }}>{itemLabel}</p>}
 
         {confirmation ? (

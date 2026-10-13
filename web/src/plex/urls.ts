@@ -23,6 +23,18 @@ export function buildThumbUrl(server: ServerRef, thumbPath: string, width: numbe
   return `${base}/photo/:/transcode?${params.toString()}`
 }
 
+/** Long edge, in pixels, of the transcoded image shown in the viewer. Preloading uses the same size so the cache hits. */
+export const VIEWER_IMAGE_SIZE = 2000
+
+/** Grid thumbnail widths. A few fixed sizes keep the browser and server caches effective. */
+export const THUMB_SIZES = [200, 320, 480, 720, 960] as const
+
+/** Picks the smallest thumbnail size that covers a cell of the given CSS size on this display. */
+export function pickThumbSize(cellCssPx: number, devicePixelRatio = 1): number {
+  const needed = cellCssPx * Math.max(1, devicePixelRatio)
+  return THUMB_SIZES.find((s) => s >= needed) ?? THUMB_SIZES[THUMB_SIZES.length - 1]
+}
+
 /** Full resolution original file, optionally as a forced download. */
 export function buildOriginalUrl(server: ServerRef, partKey: string, download = false): string {
   const base = withTrailingTrim(server.baseUrl)

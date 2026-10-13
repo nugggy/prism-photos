@@ -14,6 +14,8 @@ import { Settings } from './pages/Settings'
 import { Viewer } from './pages/Viewer'
 import { Editor } from './pages/Editor'
 
+const viewerRoute = { path: 'view/:itemId', element: <Viewer /> }
+
 export const router = createHashRouter([
   { path: '/signin', element: <SignIn /> },
   {
@@ -26,17 +28,22 @@ export const router = createHashRouter([
           {
             element: <Layout />,
             children: [
-              { path: '/photos', element: <Photos /> },
+              // List pages render the viewer through an <Outlet> on top of themselves, so the
+              // grid stays mounted (scroll position, search query and results survive).
+              { path: '/photos', element: <Photos />, children: [viewerRoute] },
               { path: '/albums', element: <Albums /> },
-              { path: '/albums/:albumId', element: <AlbumDetail /> },
-              { path: '/my-albums/:id', element: <MyAlbumDetail /> },
-              { path: '/favourites', element: <Favourites /> },
-              { path: '/search', element: <Search /> },
-              { path: '/locked', element: <Locked /> },
+              { path: '/albums/:albumId', element: <AlbumDetail />, children: [viewerRoute] },
+              { path: '/my-albums/:id', element: <MyAlbumDetail />, children: [viewerRoute] },
+              { path: '/favourites', element: <Favourites />, children: [viewerRoute] },
+              { path: '/search', element: <Search />, children: [viewerRoute] },
+              { path: '/locked', element: <Locked />, children: [viewerRoute] },
               { path: '/settings', element: <Settings /> },
             ],
           },
-          { path: '/view/:source/:index', element: <Viewer /> },
+          // Standalone viewer for links with no list context: shows the one item.
+          { path: '/view/:itemId', element: <Viewer /> },
+          // Links from older builds identified items by list position, which cannot be resolved.
+          { path: '/view/:source/:index', element: <Navigate to="/photos" replace /> },
           { path: '/edit/:id', element: <Editor /> },
         ],
       },

@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useServer } from '../lib/useServer'
 import { useSessionStore } from '../state/sessionStore'
-import { useLockStore } from '../state/lockStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { useSelection } from '../lib/useSelection'
-import { useViewerListStore } from '../state/viewerListStore'
+import { useItemList } from '../lib/useItemList'
+import { downloadItems, lockItemsOrExplain, reportBulkFailure, runForEach } from '../lib/bulk'
+import { appItemLink, viewerPath, type ViewerContext } from '../lib/viewerContext'
 import { searchLibrary, deleteItem, rateItem } from '../plex/api'
 import { buildDownloadUrl } from '../plex/urls'
 import type { MediaItem } from '../plex/model'
-import { filterLocked } from '../plex/timeline'
 import { MediaGrid } from '../components/MediaGrid'
 import { SelectionBar } from '../components/SelectionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../components/ShareSheet'
 import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
-import { downloadUrl } from '../lib/download'
+
+const BASE_PATH = '/search'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - i)
@@ -23,11 +24,8 @@ const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - i)
 export function Search(): React.ReactElement {
   const server = useServer()
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
-  const lockedItemIds = useLockStore((s) => s.lockedItemIds)
-  const lockItem = useLockStore((s) => s.lockItem)
   const density = useSettingsStore((s) => s.density)
   const setDensity = useSettingsStore((s) => s.setDensity)
-  const setViewerList = useViewerListStore((s) => s.setList)
   const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
@@ -37,7 +35,6 @@ export function Search(): React.ReactElement {
   const [items, setItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [overrides, setOverrides] = useState<Record<string, Partial<MediaItem>>>({})
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showAddToAlbum, setShowAddToAlbum] = useState(false)
@@ -57,7 +54,11 @@ export function Search(): React.ReactElement {
     let cancelled = false
     setLoading(true)
     searchLibrary(server, sectionKey, { query: debounced || undefined, tag: tag ?? undefined, year: year ?? undefined })
-      .then((data) => !cancelled && setItems(data))
+      .then((data) => {
+        if (cancelled) return
+        setItems(data)
+        setError(null)
+      })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Search failed.'))
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -71,18 +72,18 @@ export function Search(): React.ReactElement {
     return Array.from(set).slice(0, 12)
   }, [items])
 
-  const visibleItems = useMemo(() => {
-    const withOverrides = items.map((it) => (overrides[it.id] ? { ...it, ...overrides[it.id] } : it))
-    return filterLocked(withOverrides, new Set(lockedItemIds))
-  }, [items, overrides, lockedItemIds])
+  const list = useItemList(items)
+  const visibleItems = list.visible
   const selection = useSelection(visibleItems)
+
+  const viewerContext = useMemo<ViewerContext>(
+    () => ({ items: visibleItems, basePath: BASE_PATH, onItemChanged: (id, patch) => list.patch([id], patch), onItemsRemoved: list.remove }),
+    [visibleItems, list],
+  )
 
   if (!server) return <div className="page">Not connected.</div>
 
-  const openViewer = (_item: MediaItem, index: number) => {
-    setViewerList('search', visibleItems)
-    navigate(`/view/search/${index}`)
-  }
+  const openViewer = (item: MediaItem) => navigate(viewerPath(BASE_PATH, item.id))
 
   const selectedItems = visibleItems.filter((i) => selection.selectedIds.has(i.id))
 
@@ -90,12 +91,12 @@ export function Search(): React.ReactElement {
     setBusy(true)
     const makeFav = !selectedItems.every((i) => i.favourite)
     try {
-      await Promise.all(selectedItems.map((i) => rateItem(server, i.id, makeFav)))
-      setOverrides((prev) => {
-        const next = { ...prev }
-        selectedItems.forEach((i) => (next[i.id] = { ...next[i.id], favourite: makeFav }))
-        return next
-      })
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => rateItem(server, id, makeFav),
+      )
+      list.patch(result.succeeded, { favourite: makeFav })
+      reportBulkFailure(result, makeFav ? 'favourite' : 'unfavourite')
     } finally {
       setBusy(false)
       selection.clear()
@@ -103,20 +104,23 @@ export function Search(): React.ReactElement {
   }
 
   const handleLock = () => {
-    selectedItems.forEach((i) => lockItem(i.id))
-    selection.clear()
+    if (lockItemsOrExplain(selectedItems.map((i) => i.id))) selection.clear()
   }
 
   const handleDownload = () => {
-    selectedItems.forEach((i) => downloadUrl(buildDownloadUrl(server, i.partKey), i.title))
+    downloadItems(server, selectedItems)
     selection.clear()
   }
 
   const handleDelete = async () => {
     setBusy(true)
     try {
-      await Promise.all(selectedItems.map((i) => deleteItem(server, i.id)))
-      setItems((prev) => prev.filter((i) => !selection.selectedIds.has(i.id)))
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => deleteItem(server, id),
+      )
+      list.remove(result.succeeded)
+      reportBulkFailure(result, 'delete')
     } finally {
       setBusy(false)
       setConfirmDelete(false)
@@ -199,12 +203,14 @@ export function Search(): React.ReactElement {
       {showShare && selectedItems.length === 1 && (
         <ShareSheet
           title={selectedItems[0].title}
-          link={`${window.location.origin}${window.location.pathname}#/view/search/0`}
+          link={appItemLink('', selectedItems[0].id)}
           fileUrl={buildDownloadUrl(server, selectedItems[0].partKey)}
           fileName={selectedItems[0].title}
           onClose={() => setShowShare(false)}
         />
       )}
+
+      <Outlet context={viewerContext} />
     </div>
   )
 }

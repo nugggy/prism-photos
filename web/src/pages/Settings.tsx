@@ -6,8 +6,11 @@ import { useLockStore } from '../state/lockStore'
 import { signOut } from '../plex/auth'
 import { probeConnection, type ConnectionMode } from '../plex/connections'
 import { clearCache } from '../lib/cache'
+import { clearAccountData } from '../lib/localData'
 import { registerBiometricUnlock, hasBiometricUnlock, clearBiometricUnlock, isWebAuthnAvailable } from '../lib/webauthn'
 import { Icon } from '../components/Icon'
+import { PasscodeGate } from '../components/PasscodeGate'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 export function Settings(): React.ReactElement {
   const navigate = useNavigate()
@@ -29,15 +32,22 @@ export function Settings(): React.ReactElement {
   const activeConnection = useSessionStore((s) => s.activeConnection)
   const sessionSignOut = useSessionStore((s) => s.signOut)
 
-  const hasPasscode = useLockStore((s) => s.hasPasscode)
+  // Select data so the section re-renders when the passcode or lock state changes.
+  const hasPasscode = useLockStore((s) => s.passcode !== null)
+  const unlocked = useLockStore((s) => s.unlocked)
+  const lockedItemCount = useLockStore((s) => s.lockedItemIds.length)
+  const lockedAlbumCount = useLockStore((s) => s.lockedAlbumIds.length)
   const setPasscode = useLockStore((s) => s.setPasscode)
   const clearPasscode = useLockStore((s) => s.clearPasscode)
+  const lockNow = useLockStore((s) => s.lock)
 
   const [reconnectStatus, setReconnectStatus] = useState<string | null>(null)
   const [newPasscode, setNewPasscode] = useState('')
   const [cacheCleared, setCacheCleared] = useState(false)
   const [biometricsOn, setBiometricsOn] = useState(hasBiometricUnlock())
   const [biometricsAvailable] = useState(() => typeof window !== 'undefined')
+  const [showUnlock, setShowUnlock] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   const handleReconnect = async () => {
     if (!activeConnection) return
@@ -48,9 +58,29 @@ export function Settings(): React.ReactElement {
 
   const handleSignOut = async () => {
     if (accountToken) await signOut(accountToken)
+    // Leave nothing behind for the next person on this browser: cache, locks, album
+    // preferences and saved video positions.
+    await clearAccountData()
     sessionSignOut()
     navigate('/signin')
   }
+
+  const handleSetPasscode = async () => {
+    if (await setPasscode(newPasscode)) setNewPasscode('')
+  }
+
+  const handleRemovePasscode = () => {
+    if (clearPasscode()) clearBiometricUnlock()
+    setBiometricsOn(false)
+    setConfirmRemove(false)
+  }
+
+  const lockedSummary = [
+    lockedItemCount > 0 ? `${lockedItemCount} locked item${lockedItemCount === 1 ? '' : 's'}` : null,
+    lockedAlbumCount > 0 ? `${lockedAlbumCount} locked album${lockedAlbumCount === 1 ? '' : 's'}` : null,
+  ]
+    .filter(Boolean)
+    .join(' and ')
 
   const handleClearCache = async () => {
     await clearCache()
@@ -135,30 +165,69 @@ export function Settings(): React.ReactElement {
         <h2 style={{ fontSize: 15, marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name="lock" size={16} /> Lock
         </h2>
-        {hasPasscode() ? (
-          <button className="btn btn-danger" onClick={clearPasscode}>
-            Remove passcode
-          </button>
-        ) : (
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          Locking hides items on this device only. They remain visible in other Plex apps and on other devices.
+        </p>
+        {!hasPasscode ? (
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               className="input"
               type="password"
               inputMode="numeric"
               placeholder="New 4-8 digit passcode"
+              aria-label="New passcode"
               value={newPasscode}
               onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 8))}
             />
-            <button className="btn btn-primary" disabled={newPasscode.length < 4} onClick={() => void setPasscode(newPasscode)}>
+            <button className="btn btn-primary" disabled={newPasscode.length < 4} onClick={() => void handleSetPasscode()}>
               Set
             </button>
           </div>
+        ) : !unlocked ? (
+          showUnlock ? (
+            <PasscodeGate inline message="Enter your passcode to change lock settings." />
+          ) : (
+            <button className="btn" onClick={() => setShowUnlock(true)}>
+              <Icon name="unlock" size={16} /> Unlock to change lock settings
+            </button>
+          )
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-danger" onClick={() => setConfirmRemove(true)}>
+                Remove passcode
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  lockNow()
+                  setShowUnlock(false)
+                }}
+              >
+                Lock now
+              </button>
+            </div>
+            {biometricsAvailable && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13 }}>
+                <input type="checkbox" checked={biometricsOn} onChange={() => void handleToggleBiometrics()} />
+                Use device biometrics to unlock
+              </label>
+            )}
+          </>
         )}
-        {biometricsAvailable && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13 }}>
-            <input type="checkbox" checked={biometricsOn} onChange={() => void handleToggleBiometrics()} />
-            Use device biometrics to unlock
-          </label>
+        {confirmRemove && (
+          <ConfirmDialog
+            title="Remove passcode"
+            message={
+              lockedSummary
+                ? `Removing the passcode also removes every lock. Your ${lockedSummary} will become visible again in this app.`
+                : 'Removing the passcode turns off the Lock feature on this device.'
+            }
+            confirmLabel="Remove"
+            danger
+            onConfirm={handleRemovePasscode}
+            onCancel={() => setConfirmRemove(false)}
+          />
         )}
       </div>
 
