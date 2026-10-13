@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useServer } from '../lib/useServer'
+import { useServer, useServerScope } from '../lib/useServer'
 import { useSessionStore } from '../state/sessionStore'
 import { useLockStore } from '../state/lockStore'
 import { useAlbumPrefsStore } from '../state/albumPrefsStore'
@@ -15,7 +15,7 @@ function AlbumCard({ album, to, server, accentColor, locked }: { album: Album; t
   return (
     <Link to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
       <div className="grid-cell" style={{ aspectRatio: '1', border: accentColor ? `2px solid ${accentColor}` : undefined }}>
-        {album.thumbPath && <img src={buildThumbUrl(server, album.thumbPath, 400, 400)} alt="" loading="lazy" />}
+        {album.thumbPath && <img src={buildThumbUrl(server, album.thumbPath, 480, 480)} alt="" loading="lazy" />}
         {locked && <span className="badge badge-favourite">Locked</span>}
         {album.readOnly && <span className="badge badge-favourite">Smart</span>}
       </div>
@@ -32,8 +32,8 @@ export function Albums(): React.ReactElement {
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
   const machineId = useSessionStore((s) => s.machineId)
   const lockedAlbumIds = useLockStore((s) => s.lockedAlbumIds)
-  const isAlbumLocked = useLockStore((s) => s.isAlbumLocked)
-  const getPrefs = useAlbumPrefsStore((s) => s.getPrefs)
+  const albumPrefs = useAlbumPrefsStore((s) => s.prefs)
+  const scope = useServerScope()
   const navigate = useNavigate()
   const timeline = useTimeline()
 
@@ -51,24 +51,28 @@ export function Albums(): React.ReactElement {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!server || !sectionKey) return
+    if (!server || !sectionKey || !scope) return
     let cancelled = false
-    void getCachedAlbumChildren(sectionKey, null).then((cached) => {
-      if (cached && !cancelled) setFolders(cached.albums)
-      if (cached) setLoadingFolders(false)
+    // Ignore the cached copy if the network answer has already arrived.
+    let haveFreshData = false
+    void getCachedAlbumChildren(scope, sectionKey, null).then((cached) => {
+      if (!cached || cancelled || haveFreshData) return
+      setFolders(cached.albums)
+      setLoadingFolders(false)
     })
     fetchAlbumRoot(server, sectionKey)
       .then((data) => {
         if (cancelled) return
+        haveFreshData = true
         setFolders(data.albums)
-        void setCachedAlbumChildren(sectionKey, null, data)
+        void setCachedAlbumChildren(scope, sectionKey, null, data)
       })
       .catch((e) => !cancelled && setFolderError(e instanceof Error ? e.message : 'Failed to load albums.'))
       .finally(() => !cancelled && setLoadingFolders(false))
     return () => {
       cancelled = true
     }
-  }, [server, sectionKey])
+  }, [server, sectionKey, scope])
 
   const loadMyAlbums = () => {
     if (!server) return
@@ -161,7 +165,7 @@ export function Albums(): React.ReactElement {
       {!loadingFolders && visibleFolders.length === 0 && <p className="muted">No folder albums yet.</p>}
       <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
         {visibleFolders.map((album) => {
-          const prefs = getPrefs(album.id)
+          const prefs = albumPrefs[album.id] ?? {}
           return (
             <AlbumCard
               key={album.id}
@@ -169,7 +173,7 @@ export function Albums(): React.ReactElement {
               to={`/albums/${album.id}`}
               server={server}
               accentColor={prefs.accentColor}
-              locked={isAlbumLocked(album.id)}
+              locked={lockedAlbumIds.includes(album.id)}
             />
           )
         })}

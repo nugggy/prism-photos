@@ -78,4 +78,9 @@ describe('filterLocked', () => {
     const items = [item('a', 1)]
     expect(filterLocked(items, new Set())).toEqual(items)
   })
+
+  it('also hides items whose folder album is locked', () => {
+    const items = [item('a', 1, 1, { albumId: 'x' }), item('b', 2, 2, { albumId: 'y' }), item('c', 3)]
+    expect(filterLocked(items, new Set(), new Set(['x'])).map((i) => i.id)).toEqual(['b', 'c'])
+  })
 })

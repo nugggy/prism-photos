@@ -19,6 +19,14 @@ export class PlexApiError extends Error {
   }
 }
 
+type UnauthorisedHandler = (server: ServerRef) => void
+let unauthorisedHandler: UnauthorisedHandler | null = null
+
+/** Registers the app wide reaction to a 401 from a server (clear the session, go to sign in). */
+export function setUnauthorisedHandler(handler: UnauthorisedHandler | null): void {
+  unauthorisedHandler = handler
+}
+
 function trim(baseUrl: string): string {
   return baseUrl.replace(/\/$/, '')
 }
@@ -35,6 +43,7 @@ async function plexFetch<T>(
     headers: { ...buildPlexHeaders({ token: server.token }), ...(init.headers ?? {}) },
   })
   if (res.status === 401) {
+    unauthorisedHandler?.(server)
     throw new PlexApiError('Session expired. Please sign in again.', 401)
   }
   if (res.status === 403) {
@@ -384,10 +393,12 @@ export async function editMetadata(server: ServerRef, options: EditMetadataOptio
 export async function setAlbumCover(
   server: ServerRef,
   albumId: string,
-  imageUrl: string,
+  imagePath: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<void> {
-  const params = new URLSearchParams({ url: imageUrl })
+  // Pass the server relative thumb path (e.g. /library/metadata/1234/thumb/1700000000), never a
+  // full URL: Plex stores this value, and a transcode URL would carry the X-Plex-Token with it.
+  const params = new URLSearchParams({ url: imagePath })
   await plexFetch(server, `/library/metadata/${albumId}/posters?${params.toString()}`, { method: 'POST' }, fetchImpl)
 }
 

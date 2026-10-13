@@ -11,3 +11,10 @@ export function useServer(): ServerRef | null {
     return { baseUrl: activeConnection.baseUrl, token: serverToken }
   }, [activeConnection, serverToken])
 }
+
+/** Identifies the connected server for cache keys: its machine identifier, or the base URL for manual connections. */
+export function useServerScope(): string | null {
+  const machineId = useSessionStore((s) => s.machineId)
+  const baseUrl = useSessionStore((s) => s.activeConnection?.baseUrl ?? null)
+  return machineId ?? baseUrl
+}

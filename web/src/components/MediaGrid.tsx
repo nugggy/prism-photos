@@ -2,7 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MediaItem } from '../plex/model'
 import type { ServerRef } from '../plex/urls'
-import { buildThumbUrl } from '../plex/urls'
+import { buildThumbUrl, pickThumbSize } from '../plex/urls'
 import { groupByMonth } from '../plex/timeline'
 import { formatDuration } from '../lib/format'
 import { Icon } from './Icon'
@@ -20,6 +20,23 @@ export interface MediaGridProps {
   onToggleSelect: (item: MediaItem, index: number, opts: { shift: boolean; ctrl: boolean }) => void
   onOpen: (item: MediaItem, index: number) => void
   selectionMode: boolean
+  /** Month headers only make sense when the items are in date order. Defaults to true. */
+  groupByMonth?: boolean
+}
+
+function buildRows(items: MediaItem[], density: number, grouped: boolean): Row[] {
+  const groups = grouped ? groupByMonth(items) : [{ key: 'all', label: '', items }]
+  const out: Row[] = []
+  let cursor = 0
+  for (const group of groups) {
+    if (grouped) out.push({ type: 'header', key: `h-${group.key}`, label: group.label })
+    for (let i = 0; i < group.items.length; i += density) {
+      const slice = group.items.slice(i, i + density)
+      out.push({ type: 'items', key: `${group.key}-${i}`, items: slice, startIndex: cursor })
+      cursor += slice.length
+    }
+  }
+  return out
 }
 
 export function MediaGrid({
@@ -31,14 +48,16 @@ export function MediaGrid({
   onToggleSelect,
   onOpen,
   selectionMode,
+  groupByMonth: grouped = true,
 }: MediaGridProps): React.ReactElement {
   const parentRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(800)
   const [focusedIndex, setFocusedIndex] = useState(0)
+  const pendingFocus = useRef<number | null>(null)
 
   useEffect(() => {
     const el = parentRef.current
-    if (!el) return
+    if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width
       if (width) setContainerWidth(width)
@@ -47,29 +66,27 @@ export function MediaGrid({
     return () => observer.disconnect()
   }, [])
 
-  const rows = useMemo<Row[]>(() => {
-    const groups = groupByMonth(items)
-    const out: Row[] = []
-    let cursor = 0
-    for (const group of groups) {
-      out.push({ type: 'header', key: `h-${group.key}`, label: group.label })
-      for (let i = 0; i < group.items.length; i += density) {
-        const slice = group.items.slice(i, i + density)
-        out.push({ type: 'items', key: `${group.key}-${i}`, items: slice, startIndex: cursor })
-        cursor += slice.length
-      }
-    }
-    return out
-  }, [items, density])
+  const rows = useMemo<Row[]>(() => buildRows(items, density, grouped), [items, density, grouped])
+
+  // Where each item sits: its row in `rows` and its column, used for arrow key movement.
+  const positions = useMemo(() => {
+    const pos: { row: number; col: number }[] = []
+    rows.forEach((r, rowIndex) => {
+      if (r.type === 'items') r.items.forEach((_, col) => (pos[r.startIndex + col] = { row: rowIndex, col }))
+    })
+    return pos
+  }, [rows])
 
   const gap = 4
   const cellSize = Math.max(60, (containerWidth - gap * (density - 1)) / density)
+  const thumbSize = pickThumbSize(cellSize, typeof window !== 'undefined' ? window.devicePixelRatio : 1)
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (i) => (rows[i]?.type === 'header' ? 36 : cellSize + gap),
     overscan: 6,
+    initialRect: { width: containerWidth, height: 800 },
   })
 
   // Row heights depend on the cell size, which changes with container width and density.
@@ -128,40 +145,77 @@ export function MediaGrid({
     }
   }, [density, onDensityChange])
 
-  // Keyboard navigation.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (items.length === 0) return
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-      if (e.key === 'ArrowRight') {
-        setFocusedIndex((i) => Math.min(items.length - 1, i + 1))
-        e.preventDefault()
-      } else if (e.key === 'ArrowLeft') {
-        setFocusedIndex((i) => Math.max(0, i - 1))
-        e.preventDefault()
-      } else if (e.key === 'ArrowDown') {
-        setFocusedIndex((i) => Math.min(items.length - 1, i + density))
-        e.preventDefault()
-      } else if (e.key === 'ArrowUp') {
-        setFocusedIndex((i) => Math.max(0, i - density))
-        e.preventDefault()
-      } else if (e.key === 'Enter') {
-        const item = items[focusedIndex]
-        if (item) onOpen(item, focusedIndex)
-      } else if (e.key === 'Escape') {
-        // Handled by parent (clears selection).
-      }
+  const activeIndex = Math.max(0, Math.min(focusedIndex, items.length - 1))
+
+  /** Index of the item a key press moves to from `from`, or null if the key is not a grid key. */
+  const targetFor = (from: number, key: string): number | null => {
+    const last = items.length - 1
+    const here = positions[from]
+    if (!here) return null
+    const sameColumnIn = (rowIndex: number): number => {
+      const row = rows[rowIndex] as Extract<Row, { type: 'items' }>
+      return row.startIndex + Math.min(here.col, row.items.length - 1)
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [items, focusedIndex, density, onOpen])
+    switch (key) {
+      case 'ArrowRight':
+        return Math.min(last, from + 1)
+      case 'ArrowLeft':
+        return Math.max(0, from - 1)
+      case 'ArrowDown': {
+        for (let r = here.row + 1; r < rows.length; r++) if (rows[r].type === 'items') return sameColumnIn(r)
+        return from
+      }
+      case 'ArrowUp': {
+        for (let r = here.row - 1; r >= 0; r--) if (rows[r].type === 'items') return sameColumnIn(r)
+        return from
+      }
+      case 'Home':
+        return 0
+      case 'End':
+        return last
+      default:
+        return null
+    }
+  }
+
+  // Keys are handled on the grid itself (not window) and only when a cell has focus, so form
+  // controls elsewhere on the page keep their arrow keys. Enter and Space are left to the
+  // focused button, which fires its own click.
+  const onGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.dataset.index === undefined || e.altKey || e.ctrlKey || e.metaKey) return
+    const next = targetFor(Number(target.dataset.index), e.key)
+    if (next === null) return
+    e.preventDefault()
+    setFocusedIndex(next)
+    pendingFocus.current = next
+    const pos = positions[next]
+    if (pos) rowVirtualizer.scrollToIndex(pos.row, { align: 'auto' })
+  }
+
+  // Moves DOM focus once the target cell has been rendered (it may need a scroll first).
+  useEffect(() => {
+    const index = pendingFocus.current
+    if (index === null) return
+    const el = parentRef.current?.querySelector<HTMLElement>(`[data-index="${index}"]`)
+    if (el) {
+      el.focus({ preventScroll: true })
+      pendingFocus.current = null
+    }
+  })
+
+  const virtualRows = rowVirtualizer.getVirtualItems()
+  // Roving tabindex: exactly one cell is tabbable. If the active cell has been scrolled out of
+  // the rendered window, the first rendered cell takes its place so Tab still reaches the grid.
+  const renderedItemRows = virtualRows.map((v) => rows[v.index]).filter((r): r is Extract<Row, { type: 'items' }> => r?.type === 'items')
+  const activeRendered = renderedItemRows.some((r) => activeIndex >= r.startIndex && activeIndex < r.startIndex + r.items.length)
+  const tabbableIndex = activeRendered ? activeIndex : (renderedItemRows[0]?.startIndex ?? activeIndex)
 
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      <div ref={parentRef} style={{ flex: 1, height: 'calc(100vh - 180px)', overflow: 'auto', position: 'relative' }}>
+      <div ref={parentRef} role="group" aria-label="Photos and videos" onKeyDown={onGridKeyDown} style={{ flex: 1, height: 'calc(100vh - 180px)', overflow: 'auto', position: 'relative' }}>
         <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          {virtualRows.map((virtualRow) => {
             const row = rows[virtualRow.index]
             return (
               <div
@@ -181,17 +235,16 @@ export function MediaGrid({
                     {row.items.map((item, i) => {
                       const globalIndex = row.startIndex + i
                       const selected = selectedIds.has(item.id)
-                      const focused = globalIndex === focusedIndex
                       return (
                         <button
                           key={item.id}
+                          type="button"
+                          data-index={globalIndex}
+                          tabIndex={globalIndex === tabbableIndex ? 0 : -1}
+                          aria-pressed={selectionMode || selected ? selected : undefined}
                           className={`grid-cell${selected ? ' selected' : ''}`}
-                          style={{
-                            width: cellSize,
-                            height: cellSize,
-                            border: focused ? '2px solid var(--gold)' : 'none',
-                            padding: 0,
-                          }}
+                          style={{ width: cellSize, height: cellSize, border: 'none', padding: 0 }}
+                          onFocus={() => setFocusedIndex(globalIndex)}
                           onClick={(e) => {
                             setFocusedIndex(globalIndex)
                             if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -202,7 +255,7 @@ export function MediaGrid({
                           }}
                           aria-label={item.title}
                         >
-                          <img src={buildThumbUrl(server, item.thumbPath, 400, 400)} loading="lazy" alt="" />
+                          <img src={buildThumbUrl(server, item.thumbPath, thumbSize, thumbSize)} loading="lazy" alt="" />
                           {(selectionMode || selected) && <span className="checkbox" />}
                           {item.favourite && (
                             <span className="badge badge-favourite">
@@ -225,13 +278,15 @@ export function MediaGrid({
           })}
         </div>
       </div>
-      <div className="scroll-index" aria-label="Jump to month">
-        {monthIndex.map((m) => (
-          <button key={m.key} onClick={() => scrollToMonth(m.key)} type="button">
-            {m.label.split(' ')[0].slice(0, 3)}
-          </button>
-        ))}
-      </div>
+      {monthIndex.length > 0 && (
+        <div className="scroll-index" aria-label="Jump to month">
+          {monthIndex.map((m) => (
+            <button key={m.key} onClick={() => scrollToMonth(m.key)} type="button">
+              {m.label.split(' ')[0].slice(0, 3)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

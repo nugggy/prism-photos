@@ -6,24 +6,26 @@ import type { Album, MediaItem } from '../plex/model'
 
 const store = createStore('prism-cache', 'keyval')
 
-function timelineKey(sectionKey: string): string {
-  return `timeline:${sectionKey}`
+// Every key is scoped by the server's machine identifier as well as the section key, because
+// section keys are small integers that repeat across servers (section 1 exists on most of them).
+function timelineKey(serverId: string, sectionKey: string): string {
+  return `timeline:${serverId}:${sectionKey}`
 }
-function albumsKey(sectionKey: string, albumId: string | null): string {
-  return `albums:${sectionKey}:${albumId ?? 'root'}`
+function albumsKey(serverId: string, sectionKey: string, albumId: string | null): string {
+  return `albums:${serverId}:${sectionKey}:${albumId ?? 'root'}`
 }
 
-export async function getCachedTimeline(sectionKey: string): Promise<MediaItem[] | undefined> {
+export async function getCachedTimeline(serverId: string, sectionKey: string): Promise<MediaItem[] | undefined> {
   try {
-    return await get<MediaItem[]>(timelineKey(sectionKey), store)
+    return await get<MediaItem[]>(timelineKey(serverId, sectionKey), store)
   } catch {
     return undefined
   }
 }
 
-export async function setCachedTimeline(sectionKey: string, items: MediaItem[]): Promise<void> {
+export async function setCachedTimeline(serverId: string, sectionKey: string, items: MediaItem[]): Promise<void> {
   try {
-    await set(timelineKey(sectionKey), items, store)
+    await set(timelineKey(serverId, sectionKey), items, store)
   } catch {
     /* best effort */
   }
@@ -34,17 +36,17 @@ export interface CachedAlbumChildren {
   items: MediaItem[]
 }
 
-export async function getCachedAlbumChildren(sectionKey: string, albumId: string | null): Promise<CachedAlbumChildren | undefined> {
+export async function getCachedAlbumChildren(serverId: string, sectionKey: string, albumId: string | null): Promise<CachedAlbumChildren | undefined> {
   try {
-    return await get<CachedAlbumChildren>(albumsKey(sectionKey, albumId), store)
+    return await get<CachedAlbumChildren>(albumsKey(serverId, sectionKey, albumId), store)
   } catch {
     return undefined
   }
 }
 
-export async function setCachedAlbumChildren(sectionKey: string, albumId: string | null, data: CachedAlbumChildren): Promise<void> {
+export async function setCachedAlbumChildren(serverId: string, sectionKey: string, albumId: string | null, data: CachedAlbumChildren): Promise<void> {
   try {
-    await set(albumsKey(sectionKey, albumId), data, store)
+    await set(albumsKey(serverId, sectionKey, albumId), data, store)
   } catch {
     /* best effort */
   }
@@ -65,9 +67,9 @@ export async function clearCache(): Promise<void> {
   }
 }
 
-export async function deleteCachedTimeline(sectionKey: string): Promise<void> {
+export async function deleteCachedTimeline(serverId: string, sectionKey: string): Promise<void> {
   try {
-    await del(timelineKey(sectionKey), store)
+    await del(timelineKey(serverId, sectionKey), store)
   } catch {
     /* best effort */
   }

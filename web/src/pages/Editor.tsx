@@ -38,7 +38,7 @@ import {
   type EditorPreset,
 } from '../lib/editorPresets'
 import { exportFileName, formatShortDate } from '../lib/format'
-import { downloadUrl } from '../lib/download'
+import { downloadBlob } from '../lib/download'
 import { canShareFiles, shareFiles } from '../lib/share'
 
 type EditorTab = 'adjust' | 'filters' | 'crop' | 'markup' | 'frames' | 'export'
@@ -80,11 +80,45 @@ const TABS: { id: EditorTab; label: string; icon: 'sliders' | 'colorSwatch' | 'c
 
 const TEXT_BG_COLOR = 'rgba(0,0,0,0.55)'
 
+/** Long edge of the interactive preview, in CSS pixels; scaled by devicePixelRatio up to PREVIEW_MAX_PX. */
+const PREVIEW_CSS_PX = 1280
+const PREVIEW_MAX_PX = 2048
+/** Exports never work on more than this many pixels along the long edge (memory on phones). */
+const EXPORT_MAX_PX = 4096
+
+/** An image source with known pixel size: the decoded original or a downscaled copy of it. */
+interface RenderSource {
+  image: CanvasImageSource
+  width: number
+  height: number
+}
+
+function previewMaxPx(): number {
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  return Math.min(PREVIEW_MAX_PX, Math.round(PREVIEW_CSS_PX * dpr))
+}
+
+/** Returns the image itself when it is small enough, else a copy scaled to fit `maxDim` on its long edge. */
+function scaledSource(img: HTMLImageElement, maxDim: number): RenderSource {
+  const w = img.naturalWidth
+  const h = img.naturalHeight
+  const scale = Math.min(1, maxDim / Math.max(w, h))
+  if (scale >= 1) return { image: img, width: w, height: h }
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(w * scale))
+  canvas.height = Math.max(1, Math.round(h * scale))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return { image: img, width: w, height: h }
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return { image: canvas, width: canvas.width, height: canvas.height }
+}
+
 /** Pure render pipeline: rotate/flip -> straighten (auto-cropped) -> crop -> CSS filters -> pixel pipeline. */
-function renderContent(img: HTMLImageElement, edit: EditState, targetCanvas: HTMLCanvasElement, maxDim: number, seed: number): void {
+function renderContent(src: RenderSource, edit: EditState, targetCanvas: HTMLCanvasElement, maxDim: number, seed: number): void {
   const rotated90 = edit.rotation === 90 || edit.rotation === 270
-  const naturalW = img.naturalWidth
-  const naturalH = img.naturalHeight
+  const naturalW = src.width
+  const naturalH = src.height
   const baseW = rotated90 ? naturalH : naturalW
   const baseH = rotated90 ? naturalW : naturalH
 
@@ -97,7 +131,7 @@ function renderContent(img: HTMLImageElement, edit: EditState, targetCanvas: HTM
   qctx.translate(baseW / 2, baseH / 2)
   qctx.rotate((edit.rotation * Math.PI) / 180)
   qctx.scale(edit.flipH ? -1 : 1, edit.flipV ? -1 : 1)
-  qctx.drawImage(img, -naturalW / 2, -naturalH / 2)
+  qctx.drawImage(src.image, -naturalW / 2, -naturalH / 2, naturalW, naturalH)
   qctx.restore()
 
   let workCanvas: HTMLCanvasElement = quarterCanvas
@@ -145,7 +179,7 @@ function renderContent(img: HTMLImageElement, edit: EditState, targetCanvas: HTM
 }
 
 function resolveMaxDim(size: ExportSize): number {
-  return size === 'original' ? 4096 : size
+  return size === 'original' ? EXPORT_MAX_PX : Math.min(EXPORT_MAX_PX, size)
 }
 
 export function Editor(): React.ReactElement {
@@ -155,7 +189,9 @@ export function Editor(): React.ReactElement {
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
 
   const [item, setItem] = useState<MediaItem | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // loadError replaces the editor (nothing to edit); actionError is shown inline and keeps the edits.
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const [past, setPast] = useState<EditState[]>([])
   const [present, setPresent] = useState<EditState>(INITIAL_STATE)
@@ -169,6 +205,8 @@ export function Editor(): React.ReactElement {
   const [imgLoaded, setImgLoaded] = useState(false)
   const [thumbSource, setThumbSource] = useState<HTMLCanvasElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
+  // Downscaled copy of the original, built once per image, used for every interactive render.
+  const previewSourceRef = useRef<RenderSource | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const grainSeedRef = useRef<number>(Math.floor(Math.random() * 1e9))
 
@@ -199,8 +237,11 @@ export function Editor(): React.ReactElement {
   useEffect(() => {
     if (!server || !sectionKey || !id) return
     fetchMetadata(server, sectionKey, id)
-      .then(setItem)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load photo.'))
+      .then((found) => {
+        if (found) setItem(found)
+        else setLoadError('This photo could not be found.')
+      })
+      .catch((e) => setLoadError(e instanceof Error ? e.message : 'Failed to load photo.'))
   }, [server, sectionKey, id])
 
   useEffect(() => {
@@ -209,6 +250,7 @@ export function Editor(): React.ReactElement {
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       imgRef.current = img
+      previewSourceRef.current = scaledSource(img, previewMaxPx())
       setImgLoaded(true)
       const size = 240
       const canvas = document.createElement('canvas')
@@ -223,7 +265,7 @@ export function Editor(): React.ReactElement {
         setThumbSource(canvas)
       }
     }
-    img.onerror = () => setError('Could not load the original image for editing.')
+    img.onerror = () => setLoadError('Could not load the original image for editing.')
     img.src = buildOriginalUrl(server, item.partKey)
   }, [server, item])
 
@@ -307,19 +349,15 @@ export function Editor(): React.ReactElement {
 
   useEffect(() => {
     const canvas = previewCanvasRef.current
-    const img = imgRef.current
-    if (!imgLoaded || !canvas || !img) return
+    const source = previewSourceRef.current
+    if (!imgLoaded || !canvas || !source) return
     if (showOriginal) {
-      const maxDim = 1280
-      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight))
-      const w = Math.max(1, Math.round(img.naturalWidth * scale))
-      const h = Math.max(1, Math.round(img.naturalHeight * scale))
-      canvas.width = w
-      canvas.height = h
+      canvas.width = source.width
+      canvas.height = source.height
       const ctx = canvas.getContext('2d')
-      ctx?.drawImage(img, 0, 0, w, h)
+      ctx?.drawImage(source.image, 0, 0, source.width, source.height)
     } else {
-      renderContent(img, present, canvas, 1280, grainSeedRef.current)
+      renderContent(source, present, canvas, previewMaxPx(), grainSeedRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imgLoaded, showOriginal, present.rotation, present.flipH, present.flipV, present.straighten, present.crop, present.adjustments, present.filterPreset, present.filterStrength])
@@ -384,8 +422,9 @@ export function Editor(): React.ReactElement {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const delta = computeAutoEnhanceAdjustments(imageData)
       update({ adjustments: clampAdjustments({ ...present.adjustments, ...delta }) })
+      setActionError(null)
     } catch {
-      setError('Auto enhance needs pixel access to the image, which this server does not allow.')
+      setActionError('Auto enhance needs pixel access to the image, which this server does not allow.')
     }
   }
 
@@ -436,7 +475,9 @@ export function Editor(): React.ReactElement {
     const img = imgRef.current
     if (!img) return null
     const content = document.createElement('canvas')
-    renderContent(img, present, content, maxDim, grainSeedRef.current)
+    // Full resolution only here, and never beyond EXPORT_MAX_PX, so huge originals cannot
+    // exhaust canvas memory.
+    renderContent(scaledSource(img, EXPORT_MAX_PX), present, content, maxDim, grainSeedRef.current)
     if (present.markup.length > 0) {
       const baseSnapshot = document.createElement('canvas')
       baseSnapshot.width = content.width
@@ -458,46 +499,52 @@ export function Editor(): React.ReactElement {
   const mimeFor = (format: ExportFormat) => (format === 'jpeg' ? 'image/jpeg' : format === 'png' ? 'image/png' : 'image/webp')
   const extFor = (format: ExportFormat) => (format === 'jpeg' ? 'jpg' : format)
 
-  const handleDownload = async () => {
+  const exportBlob = async (): Promise<Blob> => {
     const canvas = buildExportCanvas(resolveMaxDim(exportSize))
-    if (!canvas) return
+    if (!canvas) throw new Error('The photo is not loaded yet.')
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, mimeFor(exportFormat), exportFormat === 'png' ? undefined : exportQuality))
+    if (!blob) throw new Error('Export failed.')
+    return blob
+  }
+
+  const handleDownload = async () => {
     setExporting(true)
+    setActionError(null)
     try {
-      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, mimeFor(exportFormat), exportFormat === 'png' ? undefined : exportQuality))
-      if (!blob) throw new Error('Export failed.')
-      const filename = exportFileName().replace(/\.jpg$/, `.${extFor(exportFormat)}`)
-      const url = URL.createObjectURL(blob)
-      downloadUrl(url, filename)
-      URL.revokeObjectURL(url)
+      const blob = await exportBlob()
+      // The object URL is revoked later: revoking straight after the click can cancel the download.
+      downloadBlob(blob, exportFileName().replace(/\.jpg$/, `.${extFor(exportFormat)}`))
     } catch {
-      setError('Export failed. This can happen if the Plex server does not allow cross-origin image access.')
+      setActionError('Export failed. This can happen if the Plex server does not allow cross-origin image access. Your edits are still here.')
     } finally {
       setExporting(false)
     }
   }
 
   const handleShare = async () => {
-    const canvas = buildExportCanvas(resolveMaxDim(exportSize))
-    if (!canvas) return
     setExporting(true)
+    setActionError(null)
     try {
-      const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, mimeFor(exportFormat), exportFormat === 'png' ? undefined : exportQuality))
-      if (!blob) return
+      const blob = await exportBlob()
       const file = new File([blob], exportFileName().replace(/\.jpg$/, `.${extFor(exportFormat)}`), { type: mimeFor(exportFormat) })
       if (await canShareFiles([file])) {
         await shareFiles([file], item?.title ?? 'Photo')
       } else {
-        setError('Sharing files is not supported in this browser; use Download instead.')
+        setActionError('Sharing files is not supported in this browser. Use Download instead.')
+      }
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'AbortError')) {
+        setActionError('Sharing failed. Your edits are still here, so you can try again or use Download.')
       }
     } finally {
       setExporting(false)
     }
   }
 
-  if (error) {
+  if (loadError) {
     return (
       <div className="page">
-        <p style={{ color: 'var(--danger)' }}>{error}</p>
+        <p style={{ color: 'var(--danger)' }}>{loadError}</p>
         <button className="btn" onClick={() => navigate(-1)}>
           Back
         </button>
@@ -638,6 +685,15 @@ export function Editor(): React.ReactElement {
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="card" role="alert" style={{ borderColor: 'var(--danger)', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ color: 'var(--danger)' }}>{actionError}</span>
+          <button type="button" className="btn" onClick={() => setActionError(null)} aria-label="Dismiss error">
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="editor-body">
         <div className="editor-stage-wrap" {...compareHoldProps}>

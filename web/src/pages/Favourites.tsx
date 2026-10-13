@@ -1,30 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { useServer } from '../lib/useServer'
 import { useSessionStore } from '../state/sessionStore'
-import { useLockStore } from '../state/lockStore'
 import { useSettingsStore } from '../state/settingsStore'
 import { useSelection } from '../lib/useSelection'
-import { useViewerListStore } from '../state/viewerListStore'
+import { useItemList } from '../lib/useItemList'
+import { downloadItems, lockItemsOrExplain, reportBulkFailure, runForEach } from '../lib/bulk'
+import { appItemLink, viewerPath, type ViewerContext } from '../lib/viewerContext'
 import { fetchFavourites, deleteItem, rateItem } from '../plex/api'
 import { buildDownloadUrl } from '../plex/urls'
 import type { MediaItem } from '../plex/model'
-import { filterLocked } from '../plex/timeline'
 import { MediaGrid } from '../components/MediaGrid'
 import { SelectionBar } from '../components/SelectionBar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../components/ShareSheet'
 import { AddToAlbumDialog } from '../components/AddToAlbumDialog'
-import { downloadUrl } from '../lib/download'
+
+const BASE_PATH = '/favourites'
 
 export function Favourites(): React.ReactElement {
   const server = useServer()
   const sectionKey = useSessionStore((s) => s.selectedSectionKey)
-  const lockedItemIds = useLockStore((s) => s.lockedItemIds)
-  const lockItem = useLockStore((s) => s.lockItem)
   const density = useSettingsStore((s) => s.density)
   const setDensity = useSettingsStore((s) => s.setDensity)
-  const setViewerList = useViewerListStore((s) => s.setList)
   const navigate = useNavigate()
 
   const [items, setItems] = useState<MediaItem[]>([])
@@ -52,15 +50,18 @@ export function Favourites(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server, sectionKey, reloadToken])
 
-  const visibleItems = useMemo(() => filterLocked(items, new Set(lockedItemIds)), [items, lockedItemIds])
+  const list = useItemList(items)
+  const visibleItems = list.visible
   const selection = useSelection(visibleItems)
+
+  const viewerContext = useMemo<ViewerContext>(
+    () => ({ items: visibleItems, basePath: BASE_PATH, onItemChanged: (id, patch) => list.patch([id], patch), onItemsRemoved: list.remove }),
+    [visibleItems, list],
+  )
 
   if (!server) return <div className="page">Not connected.</div>
 
-  const openViewer = (_item: MediaItem, index: number) => {
-    setViewerList('favourites', visibleItems)
-    navigate(`/view/favourites/${index}`)
-  }
+  const openViewer = (item: MediaItem) => navigate(viewerPath(BASE_PATH, item.id))
 
   const selectedItems = visibleItems.filter((i) => selection.selectedIds.has(i.id))
 
@@ -68,7 +69,11 @@ export function Favourites(): React.ReactElement {
     setBusy(true)
     try {
       // Unfavouriting from this page removes the item from the list, so refresh afterwards.
-      await Promise.all(selectedItems.map((i) => rateItem(server, i.id, false)))
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => rateItem(server, id, false),
+      )
+      reportBulkFailure(result, 'unfavourite')
       reload()
     } finally {
       setBusy(false)
@@ -77,19 +82,23 @@ export function Favourites(): React.ReactElement {
   }
 
   const handleLock = () => {
-    selectedItems.forEach((i) => lockItem(i.id))
-    selection.clear()
+    if (lockItemsOrExplain(selectedItems.map((i) => i.id))) selection.clear()
   }
 
   const handleDownload = () => {
-    selectedItems.forEach((i) => downloadUrl(buildDownloadUrl(server, i.partKey), i.title))
+    downloadItems(server, selectedItems)
     selection.clear()
   }
 
   const handleDelete = async () => {
     setBusy(true)
     try {
-      await Promise.all(selectedItems.map((i) => deleteItem(server, i.id)))
+      const result = await runForEach(
+        selectedItems.map((i) => i.id),
+        (id) => deleteItem(server, id),
+      )
+      list.remove(result.succeeded)
+      reportBulkFailure(result, 'delete')
       reload()
     } finally {
       setBusy(false)
@@ -152,12 +161,14 @@ export function Favourites(): React.ReactElement {
       {showShare && selectedItems.length === 1 && (
         <ShareSheet
           title={selectedItems[0].title}
-          link={`${window.location.origin}${window.location.pathname}#/view/favourites/0`}
+          link={appItemLink(BASE_PATH, selectedItems[0].id)}
           fileUrl={buildDownloadUrl(server, selectedItems[0].partKey)}
           fileName={selectedItems[0].title}
           onClose={() => setShowShare(false)}
         />
       )}
+
+      <Outlet context={viewerContext} />
     </div>
   )
 }
