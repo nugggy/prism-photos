@@ -21,7 +21,7 @@ fun signingValue(key: String, env: String): String? =
 // the version name): major * 10000 + minor * 1000 + patch, e.g. 1.2.3 -> 12003. This is what every
 // release so far has shipped with (1.0.5 = 10005, 1.1.0 = 11000, 1.2.3 = 12003), so codes keep
 // rising. It assumes minor <= 9 and patch <= 999; 1.10.0 would collide with 2.0.0.
-val prismVersionName: String = (project.findProperty("PRISM_VERSION_NAME") as String?) ?: "1.2.3"
+val prismVersionName: String = (project.findProperty("PRISM_VERSION_NAME") as String?) ?: "1.2.4"
 fun versionCodeFor(name: String): Int {
     val parts = name.substringBefore('-').split('.').map { p -> p.takeWhile { it.isDigit() }.toIntOrNull() ?: 0 }
     val (major, minor, patch) = (parts + listOf(0, 0, 0)).take(3)
