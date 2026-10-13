@@ -1,3 +1,66 @@
 <resources>
     <string name="app_name">Plex Gallery</string>
+
+    <!-- Common actions -->
+    <string name="action_retry">Try again</string>
+    <string name="action_close">Close</string>
+    <string name="action_undo">Undo</string>
+
+    <!-- Lock gate -->
+    <string name="lock_prompt_title">Unlock Plex Gallery</string>
+    <string name="lock_prompt_subtitle">Locked items</string>
+    <string name="lock_prompt_credential">Confirm your PIN, pattern or password</string>
+    <string name="lock_no_screen_lock">Locked items need a screen lock on this device. Set up a PIN, pattern, password or fingerprint in your security settings, then come back.</string>
+    <string name="lock_open_security_settings">Open security settings</string>
+
+    <!-- Viewer -->
+    <string name="viewer_load_failed">Couldn\'t load these photos</string>
+
+    <!-- Delete confirmations. Plex deletes cannot be reversed, so the text says so plainly. -->
+    <string name="delete_permanent_single">This permanently deletes the item. It can\'t be undone.</string>
+    <string name="delete_permanent_plex">This permanently deletes the original from Plex. It can\'t be undone.</string>
+
+    <!-- Selection bar undo snackbars -->
+    <plurals name="undo_favourited">
+        <item quantity="one">Added %d item to favourites</item>
+        <item quantity="other">Added %d items to favourites</item>
+    </plurals>
+    <plurals name="undo_unfavourited">
+        <item quantity="one">Removed %d item from favourites</item>
+        <item quantity="other">Removed %d items from favourites</item>
+    </plurals>
+    <plurals name="undo_locked">
+        <item quantity="one">Locked %d item</item>
+        <item quantity="other">Locked %d items</item>
+    </plurals>
+    <plurals name="undo_unlocked">
+        <item quantity="one">Unlocked %d item</item>
+        <item quantity="other">Unlocked %d items</item>
+    </plurals>
+
+    <!-- Search -->
+    <string name="search_failed">Search didn\'t work. Check your connection to the server.</string>
+
+    <!-- Media grid cell (read by TalkBack) -->
+    <string name="media_cell_video">Video, %1$s</string>
+    <string name="media_cell_favourite">Favourite</string>
+    <string name="media_cell_select">Select</string>
+
+    <!-- Colour swatch names (read by TalkBack) -->
+    <string name="colour_white">White</string>
+    <string name="colour_black">Black</string>
+    <string name="colour_gold">Gold</string>
+    <string name="colour_grey">Grey</string>
+    <string name="colour_light_red">Light red</string>
+    <string name="colour_light_blue">Light blue</string>
+    <string name="colour_light_green">Light green</string>
+    <string name="colour_light_purple">Light purple</string>
+    <string name="colour_red">Red</string>
+    <string name="colour_blue">Blue</string>
+    <string name="colour_green">Green</string>
+    <string name="colour_orange">Orange</string>
+    <string name="colour_pink">Pink</string>
+
+    <!-- Settings -->
+    <string name="webdav_insecure_warning">This address uses http over the internet, so your password and photos would travel unencrypted. Use https, or a local network address.</string>
 </resources>

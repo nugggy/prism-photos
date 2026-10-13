@@ -51,11 +51,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import au.prism.photos.R
 import au.prism.photos.BuildConfig
 import au.prism.photos.PrismApp
 import au.prism.photos.data.upload.ConnectionTester
@@ -504,6 +506,10 @@ private fun SyncToPlexSection() {
                 label = { Text("WebDAV address") },
                 placeholder = { Text("https://nas.local:5006/photos") },
                 singleLine = true,
+                isError = isInsecureRemoteWebDavUrl(webDavUrl),
+                supportingText = if (isInsecureRemoteWebDavUrl(webDavUrl)) {
+                    { Text(stringResource(R.string.webdav_insecure_warning)) }
+                } else null,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
             OutlinedTextField(

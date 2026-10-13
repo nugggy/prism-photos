@@ -27,6 +27,7 @@ import au.prism.photos.ui.albums.MyAlbumDetailScreen
 import au.prism.photos.ui.components.LocalPickHandler
 import au.prism.photos.ui.editor.EditorScreen
 import au.prism.photos.ui.home.HomeScreen
+import au.prism.photos.ui.lock.LockGate
 import au.prism.photos.ui.search.SearchScreen
 import au.prism.photos.ui.servers.LibraryPickerScreen
 import au.prism.photos.ui.servers.ServerPickerScreen
@@ -91,21 +92,33 @@ fun PrismNavHost(
             }
             composable(
                 Routes.ALBUM,
-                arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
+                arguments = listOf(
+                    navArgument("albumId") { type = NavType.StringType },
+                    lockedArgument(),
+                ),
             ) { entry ->
-                val albumId = entry.arguments?.getString("albumId").orEmpty()
-                AlbumDetailScreen(
-                    albumId = albumId,
-                    onBack = { navController.popBackStack() },
-                    onOpenAlbum = { id -> navController.navigate(Routes.album(id)) },
-                    onOpenViewer = { index -> navController.navigate(Routes.viewer(SourceCodec.encode(ViewerSource.Album(albumId)), index)) },
-                )
+                val albumId = Routes.decodeArg(entry.arguments?.getString("albumId").orEmpty())
+                // Decided on entry: locking the album from inside pops back anyway, and this keeps the
+                // gate in place through the exit animation and after process death restores the entry.
+                val gated = remember(albumId) {
+                    entry.arguments?.getBoolean("locked") == true || albumId in graph.local.lockedAlbumIds.value
+                }
+                Gated(gated) {
+                    AlbumDetailScreen(
+                        albumId = albumId,
+                        onBack = { navController.popBackStack() },
+                        onOpenAlbum = { id -> navController.navigate(Routes.album(id, locked = gated)) },
+                        onOpenViewer = { index ->
+                            navController.navigate(Routes.viewer(SourceCodec.encode(ViewerSource.Album(albumId)), index, locked = gated))
+                        },
+                    )
+                }
             }
             composable(
                 Routes.MY_ALBUM,
                 arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
             ) { entry ->
-                val albumId = entry.arguments?.getString("albumId").orEmpty()
+                val albumId = Routes.decodeArg(entry.arguments?.getString("albumId").orEmpty())
                 MyAlbumDetailScreen(
                     albumId = albumId,
                     onBack = { navController.popBackStack() },
@@ -131,45 +144,58 @@ fun PrismNavHost(
                 arguments = listOf(
                     navArgument("source") { type = NavType.StringType },
                     navArgument("index") { type = NavType.IntType },
+                    lockedArgument(),
                 ),
             ) { entry ->
                 val sourceArg = entry.arguments?.getString("source").orEmpty()
                 val index = entry.arguments?.getInt("index") ?: 0
-                ViewerScreen(
-                    source = SourceCodec.decode(sourceArg),
-                    startIndex = index,
-                    onClose = { navController.popBackStack() },
-                    onEdit = { itemId -> navController.navigate(Routes.editor(itemId)) },
-                    onEditVideo = { itemId -> navController.navigate(Routes.videoEditor(itemId)) },
-                )
+                val source = remember(sourceArg) { SourceCodec.decode(sourceArg) }
+                val gated = remember(sourceArg) {
+                    entry.arguments?.getBoolean("locked") == true ||
+                        source == ViewerSource.Locked ||
+                        (source is ViewerSource.Album && source.albumId in graph.local.lockedAlbumIds.value)
+                }
+                Gated(gated) {
+                    ViewerScreen(
+                        source = source,
+                        startIndex = index,
+                        onClose = { navController.popBackStack() },
+                        onEdit = { itemId -> navController.navigate(Routes.editor(itemId, locked = gated)) },
+                        onEditVideo = { itemId -> navController.navigate(Routes.videoEditor(itemId, locked = gated)) },
+                    )
+                }
             }
             composable(
                 Routes.EDITOR,
-                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }, lockedArgument()),
             ) { entry ->
-                val itemId = entry.arguments?.getString("itemId").orEmpty()
-                EditorScreen(
-                    itemId = itemId,
-                    onDone = { navController.popBackStack() },
-                    onCancel = { navController.popBackStack() },
-                )
+                val itemId = Routes.decodeArg(entry.arguments?.getString("itemId").orEmpty())
+                Gated(entry.arguments?.getBoolean("locked") == true) {
+                    EditorScreen(
+                        itemId = itemId,
+                        onDone = { navController.popBackStack() },
+                        onCancel = { navController.popBackStack() },
+                    )
+                }
             }
             composable(
                 Routes.VIDEO_EDITOR,
-                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }, lockedArgument()),
             ) { entry ->
-                val itemId = java.net.URLDecoder.decode(entry.arguments?.getString("itemId").orEmpty(), "UTF-8")
-                au.prism.photos.ui.videoeditor.VideoEditorScreen(
-                    itemId = itemId,
-                    onDone = { navController.popBackStack() },
-                    onCancel = { navController.popBackStack() },
-                )
+                val itemId = Routes.decodeArg(entry.arguments?.getString("itemId").orEmpty())
+                Gated(entry.arguments?.getBoolean("locked") == true) {
+                    au.prism.photos.ui.videoeditor.VideoEditorScreen(
+                        itemId = itemId,
+                        onDone = { navController.popBackStack() },
+                        onCancel = { navController.popBackStack() },
+                    )
+                }
             }
             composable(
                 Routes.UPLOAD,
                 arguments = listOf(navArgument("uris") { type = NavType.StringType }),
             ) { entry ->
-                val uris = java.net.URLDecoder.decode(entry.arguments?.getString("uris").orEmpty(), "UTF-8")
+                val uris = Routes.decodeArg(entry.arguments?.getString("uris").orEmpty())
                     .split("|").filter { it.isNotBlank() }
                 au.prism.photos.ui.upload.UploadScreen(
                     uris = uris,
@@ -188,4 +214,16 @@ fun PrismNavHost(
             onViewUrisConsumed()
         }
     }
+}
+
+/** Optional `locked` query argument shared by destinations that can show locked content. */
+private fun lockedArgument() = navArgument("locked") {
+    type = NavType.BoolType
+    defaultValue = false
+}
+
+/** Wraps [content] in a [LockGate] when [gated]; otherwise shows it as is. */
+@Composable
+private fun Gated(gated: Boolean, content: @Composable () -> Unit) {
+    if (gated) LockGate(content) else content()
 }

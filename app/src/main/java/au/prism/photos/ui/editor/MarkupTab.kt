@@ -43,10 +43,20 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import au.prism.photos.R
 import au.prism.photos.ui.theme.PlexGold
 import kotlin.math.roundToInt
 
-private val markupColours = listOf(PlexGold, Color.White, Color.Black, Color.Red, Color(0xFF2196F3), Color(0xFF4CAF50), Color(0xFFFF9800), Color(0xFFE91E63))
+private val markupColours = listOf(
+    NamedColour(PlexGold, R.string.colour_gold),
+    NamedColour(Color.White, R.string.colour_white),
+    NamedColour(Color.Black, R.string.colour_black),
+    NamedColour(Color.Red, R.string.colour_red),
+    NamedColour(Color(0xFF2196F3), R.string.colour_blue),
+    NamedColour(Color(0xFF4CAF50), R.string.colour_green),
+    NamedColour(Color(0xFFFF9800), R.string.colour_orange),
+    NamedColour(Color(0xFFE91E63), R.string.colour_pink),
+)
 private val emojiChoices = listOf("😀", "😂", "😍", "😎", "🥳", "👍", "❤️", "🔥", "⭐", "🎉", "😢", "😮", "👏", "🙌", "💯", "✨")
 
 @Composable
@@ -79,17 +89,13 @@ fun MarkupTab(vm: EditorViewModel, markup: List<MarkupElement>, modifier: Modifi
         }
 
         if (tool == MarkupTool.PEN || tool == MarkupTool.ARROW || tool == MarkupTool.RECTANGLE || tool == MarkupTool.ELLIPSE || tool == MarkupTool.HIGHLIGHTER) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                markupColours.forEach { colour ->
-                    Box(
-                        Modifier
-                            .size(28.dp)
-                            .background(colour, CircleShape)
-                            .border(if (brushColor.toArgb() == colour.toArgb()) 2.dp else 1.dp, if (brushColor.toArgb() == colour.toArgb()) PlexGold else Color.Gray, CircleShape)
-                            .clickable { vm.brushColor.value = colour },
-                    )
-                }
-            }
+            ColourSwatchRow(
+                colours = markupColours,
+                selectedArgb = brushColor.toArgb(),
+                onPick = { colour -> vm.brushColor.value = colour },
+                swatchSize = 28.dp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            )
         }
 
         if (tool != MarkupTool.NONE && tool != MarkupTool.TEXT && tool != MarkupTool.EMOJI) {
@@ -208,17 +214,13 @@ private fun AddTextDialog(onDismiss: () -> Unit, onConfirm: (String, Color, Floa
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    markupColours.forEach { c ->
-                        Box(
-                            Modifier
-                                .size(26.dp)
-                                .background(c, CircleShape)
-                                .border(if (colour.toArgb() == c.toArgb()) 2.dp else 1.dp, if (colour.toArgb() == c.toArgb()) PlexGold else Color.Gray, CircleShape)
-                                .clickable { colour = c },
-                        )
-                    }
-                }
+                ColourSwatchRow(
+                    colours = markupColours,
+                    selectedArgb = colour.toArgb(),
+                    onPick = { colour = it },
+                    swatchSize = 26.dp,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("Font size", style = MaterialTheme.typography.labelMedium)
                     Slider(

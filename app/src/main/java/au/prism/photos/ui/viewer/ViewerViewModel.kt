@@ -5,16 +5,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import au.prism.photos.PrismApp
+import au.prism.photos.R
+import au.prism.photos.domain.LoadState
 import au.prism.photos.domain.MediaItem
 import au.prism.photos.domain.SortOrder
 import au.prism.photos.domain.ViewerSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Resolves a [ViewerSource] into a list of [MediaItem] for the pager and exposes the item
@@ -31,46 +37,99 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
 
+    /** A failed action (favourite, rename, tags). Shown once by the screen, then cleared with [clearError]. */
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    /** The initial load failed and there is nothing to show. The screen offers [retry]. */
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError: StateFlow<String?> = _loadError.asStateFlow()
 
     /** Remembered playback position per item id, so swiping away and back resumes. */
     private val positions = mutableMapOf<String, Long>()
 
+    private var settleJob: Job? = null
+
     init {
         when (source) {
-            ViewerSource.Timeline -> viewModelScope.launch {
-                graph.media.timeline.collectLatest {
-                    _items.value = it
+            ViewerSource.Timeline -> follow(graph.media.timeline)
+            ViewerSource.Locked -> follow(graph.media.lockedItems)
+            else -> viewModelScope.launch { load() }
+        }
+    }
+
+    /**
+     * Timeline and Locked follow the repository. Those flows start empty (for example straight after
+     * process death restores the viewer), so an empty list only counts as final once the repository
+     * reports the timeline finished loading, plus a short grace period for the derived lists to catch
+     * up, or after [LOAD_TIMEOUT_MS]. Until then the screen keeps showing its spinner.
+     */
+    private fun follow(flow: StateFlow<List<MediaItem>>) {
+        viewModelScope.launch {
+            flow.collect { list ->
+                _items.value = list
+                if (list.isNotEmpty()) {
                     _loading.value = false
+                    _loadError.value = null
                 }
             }
-            ViewerSource.Locked -> viewModelScope.launch {
-                graph.media.lockedItems.collectLatest {
-                    _items.value = it
-                    _loading.value = false
+        }
+        settleEmpty()
+    }
+
+    private fun settleEmpty() {
+        settleJob?.cancel()
+        settleJob = viewModelScope.launch {
+            withTimeoutOrNull(LOAD_TIMEOUT_MS) {
+                graph.media.timelineState.first { it is LoadState.Loaded || it is LoadState.Error }
+                if (source == ViewerSource.Locked) {
+                    // Locked items missing from the timeline are fetched one by one after it loads.
+                    combine(graph.media.lockedItems, graph.local.lockedItemIds) { list, ids -> list.isNotEmpty() || ids.isEmpty() }
+                        .first { it }
                 }
+                delay(EMPTY_GRACE_MS)
+            }
+            if (_items.value.isEmpty()) {
+                val state = graph.media.timelineState.value
+                if (state is LoadState.Error) _loadError.value = state.message
+                _loading.value = false
+            }
+        }
+    }
+
+    /** Tries the initial load again after [loadError]. */
+    fun retry() {
+        _loadError.value = null
+        _loading.value = true
+        when (source) {
+            ViewerSource.Timeline, ViewerSource.Locked -> {
+                viewModelScope.launch { graph.media.refreshTimeline(force = true) }
+                settleEmpty()
             }
             else -> viewModelScope.launch { load() }
         }
     }
 
+    fun clearError() { _error.value = null }
+
     private suspend fun load() {
         _loading.value = true
+        var failure: Throwable? = null
         val result: List<MediaItem> = when (val s = source) {
             ViewerSource.Timeline, ViewerSource.Locked -> emptyList()
-            ViewerSource.Favourites -> graph.media.favourites().getOrElse { onError(it); emptyList() }
+            ViewerSource.Favourites -> graph.media.favourites().getOrElse { failure = it; emptyList() }
             is ViewerSource.Album -> {
-                val contents = graph.media.albumContents(s.albumId).getOrElse { onError(it); null }
+                val contents = graph.media.albumContents(s.albumId).getOrElse { failure = it; null }
                 val sort = graph.local.albumSort.value[s.albumId]
                 applySort(contents?.items ?: emptyList(), sort)
             }
-            is ViewerSource.MyAlbum -> graph.media.myAlbumItems(s.albumId).getOrElse { onError(it); emptyList() }
-            is ViewerSource.Search -> graph.media.search(s.query).getOrElse { onError(it); emptyList() }
+            is ViewerSource.MyAlbum -> graph.media.myAlbumItems(s.albumId).getOrElse { failure = it; emptyList() }
+            is ViewerSource.Search -> graph.media.search(s.query).getOrElse { failure = it; emptyList() }
             is ViewerSource.Device -> graph.device.items(s.bucketId)
             is ViewerSource.Items -> graph.media.items(s.ids)
             is ViewerSource.ExternalUris -> graph.device.itemsForUris(s.uris)
         }
+        failure?.let { _loadError.value = it.message ?: PrismApp.instance.getString(R.string.viewer_load_failed) }
         _items.value = result
         _loading.value = false
     }
@@ -211,6 +270,11 @@ class ViewerViewModel(private val source: ViewerSource) : ViewModel() {
     fun setAlbumCover(item: MediaItem) {
         val albumId = item.albumId ?: return
         viewModelScope.launch { graph.local.setAlbumCover(albumId, item.id) }
+    }
+
+    companion object {
+        private const val LOAD_TIMEOUT_MS = 20_000L
+        private const val EMPTY_GRACE_MS = 1_500L
     }
 
     class Factory(private val source: ViewerSource) : ViewModelProvider.Factory {

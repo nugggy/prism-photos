@@ -18,7 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import au.prism.photos.R
 
 @Composable
 fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
@@ -40,8 +42,8 @@ fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> 
 fun DeleteConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete this item?") },
-        text = { Text("This can't be undone.") },
+        title = { Text(stringResource(R.string.viewer_delete_confirm_title)) },
+        text = { Text(stringResource(R.string.delete_permanent_single)) },
         confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

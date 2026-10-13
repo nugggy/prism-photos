@@ -20,6 +20,7 @@ import au.prism.photos.PrismApp
 import au.prism.photos.ui.theme.PlexGold
 import coil3.BitmapImage
 import coil3.ImageLoader
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
@@ -183,10 +184,12 @@ class EditorViewModel(private val itemId: String) : ViewModel() {
     private suspend fun decodeFromPlex(id: String): Bitmap {
         val item = graph.media.item(id) ?: throw IOException("Item not found")
         // Decode straight to the working size: a 50 MP original would otherwise become a 200 MB
-        // software bitmap and crash the app on the phone.
+        // software bitmap and crash the app on the phone. Kept out of Coil's memory cache: the editor
+        // holds its own working copy, so a cached duplicate would only double the memory used.
         val loader = graph.imageLoader
         val request = ImageRequest.Builder(PrismApp.instance)
             .data(graph.media.originalUrl(item))
+            .memoryCachePolicy(CachePolicy.DISABLED)
             .allowHardware(false)
             .size(MAX_EDGE, MAX_EDGE)
             .precision(Precision.INEXACT)

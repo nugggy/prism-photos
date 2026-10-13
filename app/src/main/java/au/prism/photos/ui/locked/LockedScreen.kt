@@ -1,5 +1,7 @@
 package au.prism.photos.ui.locked
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,6 +74,8 @@ fun LockedScreen(
         val scope = rememberCoroutineScope()
         val selection = remember { SelectionState() }
         val snackbarHostState = remember { SnackbarHostState() }
+        val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+        SelectionBackHandler(selection)
         val items by graph.media.lockedItems.collectAsStateWithLifecycle()
         val lockedAlbumIds by graph.local.lockedAlbumIds.collectAsStateWithLifecycle()
         var lockedAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
@@ -98,7 +102,7 @@ fun LockedScreen(
                                     snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                                 }
                             }) { Icon(Icons.Filled.Download, contentDescription = "Download") }
-                            IconButton(onClick = { scope.launch { MediaSelectionOps.unlock(graph, selection.selected); selection.clear() } }) {
+                            IconButton(onClick = { selectionActions.unlock(selection.selected) }) {
                                 Icon(Icons.Filled.LockOpen, contentDescription = "Unlock")
                             }
                             IconButton(onClick = { showAddToAlbum = true }) { Icon(Icons.Filled.PlaylistAdd, contentDescription = "Add to album") }

@@ -24,9 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
 import coil3.compose.AsyncImage
 
@@ -41,15 +46,25 @@ fun MediaCell(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // TalkBack reads one label for the cell: title, then video and length, then favourite. The
+    // badges themselves are hidden from accessibility so nothing is read twice.
+    val videoLabel = if (item.isVideo) stringResource(R.string.media_cell_video, formatDuration(item.durationMs)) else null
+    val favouriteLabel = if (item.favourite) stringResource(R.string.media_cell_favourite) else null
+    val label = listOfNotNull(item.title.ifBlank { null }, videoLabel, favouriteLabel).joinToString(", ")
     Box(
         modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(2.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = if (selectionMode) null else stringResource(R.string.media_cell_select),
+            )
+            .semantics { if (selectionMode) this.selected = selected }
     ) {
         AsyncImage(
             model = thumbUrl,
-            contentDescription = item.title,
+            contentDescription = label,
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
@@ -59,7 +74,8 @@ fun MediaCell(
             Row(
                 Modifier
                     .align(Alignment.BottomStart)
-                    .padding(4.dp),
+                    .padding(4.dp)
+                    .clearAndSetSemantics {},
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(2.dp))
@@ -69,7 +85,7 @@ fun MediaCell(
         if (item.favourite && !selectionMode) {
             Icon(
                 Icons.Filled.Favorite,
-                contentDescription = "Favourite",
+                contentDescription = null,
                 tint = Color(0xFFE5A00D),
                 modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(16.dp),
             )

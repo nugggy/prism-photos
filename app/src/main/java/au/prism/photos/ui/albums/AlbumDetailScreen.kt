@@ -1,5 +1,7 @@
 package au.prism.photos.ui.albums
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -100,6 +102,8 @@ fun AlbumDetailScreen(
     val scope = rememberCoroutineScope()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+    SelectionBackHandler(selection)
     val pick = LocalPickHandler.current
 
     val accents by graph.local.albumAccents.collectAsStateWithLifecycle()
@@ -139,8 +143,8 @@ fun AlbumDetailScreen(
                             snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                         }
                     },
-                    onToggleFavourite = { scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear() } },
-                    onLock = { scope.launch { MediaSelectionOps.lock(graph, selection.selected); selection.clear() } },
+                    onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
+                    onLock = { selectionActions.lock(selection.selected) },
                     onAddToAlbum = { showAddToAlbum = true },
                     onDelete = { showDeleteConfirm = true },
                 )

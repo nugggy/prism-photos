@@ -1,5 +1,7 @@
 package au.prism.photos.ui.albums
 
+import au.prism.photos.ui.components.rememberSelectionActions
+import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -62,6 +64,8 @@ fun MyAlbumDetailScreen(
     val scope = rememberCoroutineScope()
     val selection = remember { SelectionState() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectionActions = rememberSelectionActions(selection, snackbarHostState)
+    SelectionBackHandler(selection)
 
     var menuOpen by remember { mutableStateOf(false) }
     var renameOpen by remember { mutableStateOf(false) }
@@ -86,7 +90,7 @@ fun MyAlbumDetailScreen(
                             snackbarHostState.showSnackbar(if (result.isSuccess) "Downloaded ${result.getOrNull()} item(s)" else "Download failed")
                         }
                     },
-                    onToggleFavourite = { scope.launch { MediaSelectionOps.toggleFavourite(graph, selectedItems); selection.clear() } },
+                    onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
                     onRemoveFromAlbum = if (!readOnly) {
                         {
                             scope.launch {

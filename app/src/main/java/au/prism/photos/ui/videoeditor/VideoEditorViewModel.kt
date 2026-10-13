@@ -79,6 +79,9 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
 
     private var transformer: Transformer? = null
 
+    /** Output of the export in progress, deleted if that export is cancelled or fails. */
+    private var exportingFile: File? = null
+
     val hasChanges: Boolean get() = _editState.value != initialState
 
     init {
@@ -92,6 +95,7 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
     private suspend fun loadSource() {
         _sourcePhase.value = SourcePhase.Preparing
         try {
+            withContext(Dispatchers.IO) { pruneStaleCache() }
             val uri = withContext(Dispatchers.IO) { resolveSourceUri() }
             val (durationMs, width, height) = withContext(Dispatchers.IO) { readMetadata(uri) }
             initialState = VideoEditState(trimStartMs = 0, trimEndMs = durationMs)
@@ -100,6 +104,19 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
             loadFilmstrip(uri, durationMs)
         } catch (e: Exception) {
             _sourcePhase.value = SourcePhase.Error(e.message ?: "Couldn't load this video")
+        }
+    }
+
+    /**
+     * Downloaded sources (videoedit) and exports (edits) live in the cache directory. Android only
+     * clears that under storage pressure, so drop anything older than [STALE_CACHE_MS] here.
+     */
+    private fun pruneStaleCache() {
+        val cutoff = System.currentTimeMillis() - STALE_CACHE_MS
+        listOf("videoedit", "edits").forEach { name ->
+            File(context.cacheDir, name).listFiles()?.forEach { file ->
+                if (file.isFile && file.lastModified() < cutoff) file.delete()
+            }
         }
     }
 
@@ -287,16 +304,19 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
                     .addListener(object : Transformer.Listener {
                         override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                            exportingFile = null
                             viewModelScope.launch { finishExport(outFile) }
                         }
 
                         override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
+                            exportingFile = null
                             outFile.delete()
                             _exportPhase.value = ExportPhase.Failed(readableError(exportException))
                         }
                     })
                     .build()
                 this@VideoEditorViewModel.transformer = transformer
+                exportingFile = outFile
                 transformer.start(editedItem, outFile.absolutePath)
                 pollProgress(transformer)
             } catch (e: Exception) {
@@ -402,7 +422,15 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
     fun cancelExport() {
         transformer?.cancel()
         transformer = null
+        deletePartialExport()
         _exportPhase.value = ExportPhase.Idle
+    }
+
+    /** Removes the half written output of a cancelled export. */
+    private fun deletePartialExport() {
+        val file = exportingFile ?: return
+        exportingFile = null
+        file.delete()
     }
 
     private fun readableError(exception: ExportException): String = when (exception.errorCode) {
@@ -421,6 +449,11 @@ class VideoEditorViewModel(private val itemId: String) : ViewModel() {
     override fun onCleared() {
         transformer?.cancel()
         transformer = null
+        deletePartialExport()
+    }
+
+    private companion object {
+        const val STALE_CACHE_MS = 7L * 24 * 60 * 60 * 1000
     }
 
     class Factory(private val itemId: String) : ViewModelProvider.Factory {

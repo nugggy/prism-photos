@@ -17,6 +17,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -27,14 +29,26 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.size.Precision
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 private const val MIN_SCALE = 1f
 private const val MAX_SCALE = 5f
 private const val DOUBLE_TAP_SCALE = 2.5f
 private const val ORIGINAL_RETRIES = 2
+
+/** Past this zoom the screen sized decode looks soft, so a sharper copy is loaded. */
+private const val HI_RES_SCALE = 1.5f
+
+/**
+ * Longest edge of the sharper copy. Coil never upscales with INEXACT precision, so smaller
+ * originals decode at their own size. Capped because very large decodes crashed 1.2.0.
+ */
+private const val HI_RES_MAX_EDGE = 4096
 
 private fun logLoadFailure(which: String, model: Any?, error: Throwable) {
     val where = model.toString().replace(Regex("X-Plex-Token=[^&]+"), "X-Plex-Token=…")
@@ -76,6 +90,16 @@ fun ZoomableImage(
     // couple of times before settling for the preview.
     var attempt by remember(model) { mutableIntStateOf(0) }
     var failedAttempt by remember(model) { mutableIntStateOf(-1) }
+    // Once zoomed past HI_RES_SCALE, load a sharper copy (up to HI_RES_MAX_EDGE) and draw it over
+    // the screen sized one with the same transform. It stays for as long as this page is composed,
+    // so zooming out and in again does not reload it.
+    var wantHiRes by remember(model) { mutableStateOf(false) }
+    var hiResLoaded by remember(model) { mutableStateOf(false) }
+    LaunchedEffect(model) {
+        snapshotFlow { scale }.first { it > HI_RES_SCALE }
+        wantHiRes = true
+    }
+
     LaunchedEffect(failedAttempt) {
         if (failedAttempt >= 0 && failedAttempt < ORIGINAL_RETRIES) {
             delay(1000L * (failedAttempt + 1))
@@ -155,6 +179,23 @@ fun ZoomableImage(
                     logLoadFailure("original (attempt ${attempt + 1})", model, it.result.throwable)
                     failedAttempt = attempt
                 },
+                modifier = if (hiResLoaded) transformed.alpha(0f) else transformed,
+            )
+        }
+        if (wantHiRes && originalLoaded) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(model)
+                    .size(HI_RES_MAX_EDGE, HI_RES_MAX_EDGE)
+                    .precision(Precision.INEXACT)
+                    // A 4096 px bitmap would push most thumbnails out of the memory cache.
+                    .memoryCachePolicy(CachePolicy.DISABLED)
+                    .crossfade(false)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                onSuccess = { hiResLoaded = true },
+                onError = { logLoadFailure("high resolution", model, it.result.throwable) },
                 modifier = transformed,
             )
         }
