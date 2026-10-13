@@ -17,6 +17,18 @@ val keystoreProps = Properties().apply {
 fun signingValue(key: String, env: String): String? =
     (keystoreProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
 
+// The one versionCode formula, used for local and CI builds alike (android-release.yml passes only
+// the version name): major * 10000 + minor * 1000 + patch, e.g. 1.2.3 -> 12003. This is what every
+// release so far has shipped with (1.0.5 = 10005, 1.1.0 = 11000, 1.2.3 = 12003), so codes keep
+// rising. It assumes minor <= 9 and patch <= 999; 1.10.0 would collide with 2.0.0.
+val prismVersionName: String = (project.findProperty("PRISM_VERSION_NAME") as String?) ?: "1.2.3"
+fun versionCodeFor(name: String): Int {
+    val parts = name.substringBefore('-').split('.').map { p -> p.takeWhile { it.isDigit() }.toIntOrNull() ?: 0 }
+    val (major, minor, patch) = (parts + listOf(0, 0, 0)).take(3)
+    require(minor <= 9 && patch <= 999) { "versionCode formula only supports minor <= 9 and patch <= 999 (got $name)" }
+    return (major * 10000 + minor * 1000 + patch).coerceAtLeast(1)
+}
+
 android {
     namespace = "au.prism.photos"
     compileSdk = 36
@@ -25,8 +37,9 @@ android {
         applicationId = "au.prism.photos"
         minSdk = 29
         targetSdk = 36
-        versionCode = (project.findProperty("PRISM_VERSION_CODE") as String?)?.toIntOrNull() ?: 12003
-        versionName = (project.findProperty("PRISM_VERSION_NAME") as String?) ?: "1.2.3"
+        // PRISM_VERSION_CODE still overrides, for a one-off rebuild; normally leave it unset.
+        versionCode = (project.findProperty("PRISM_VERSION_CODE") as String?)?.toIntOrNull() ?: versionCodeFor(prismVersionName)
+        versionName = prismVersionName
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
         vectorDrawables.useSupportLibrary = true
     }

@@ -7,8 +7,11 @@ import au.prism.photos.data.Diagnostics
 import au.prism.photos.data.plex.PlexServerApi
 import au.prism.photos.domain.MediaRepository
 import au.prism.photos.domain.SessionStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
@@ -45,7 +48,6 @@ class UploadService(
         onProgress: (done: Int, total: Int, currentName: String, fraction: Float) -> Unit,
     ): UploadReport = withContext(Dispatchers.IO) {
         val settings = settingsStore.settings.value
-        val store = RemoteStoreFactory.create(settings.destination, resolver, webDavClient)
         val subFolder = (folder?.trim('/')?.takeIf { it.isNotBlank() })
             ?: SubFolderPattern.resolve(settings.subFolderPattern, deviceDisplayName(), System.currentTimeMillis())
 
@@ -56,45 +58,73 @@ class UploadService(
 
         if (uris.isEmpty()) return@withContext UploadReport(0, 0, 0, emptyList())
 
+        RemoteStoreFactory.refusalReason(settings.destination)?.let { reason ->
+            Diagnostics.log("Upload refused: $reason")
+            return@withContext UploadReport(0, 0, uris.size, listOf(reason))
+        }
+        val store = RemoteStoreFactory.create(settings.destination, resolver, webDavClient)
+
         try {
             if (subFolder.isNotBlank()) store.ensureFolder(subFolder)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Diagnostics.log("Upload: couldn't create folder \"$subFolder\": ${e.message}")
             return@withContext UploadReport(0, 0, uris.size, listOf("Couldn't create the destination folder: ${e.message}"))
         }
 
-        uris.forEachIndexed { index, uriStr ->
-            val info = DeviceFileInspector.inspect(resolver, Uri.parse(uriStr))
-            onProgress(index, total, info.displayName, 0f)
+        try {
+            uris.forEachIndexed { index, uriStr ->
+                ensureActive()
+                val info = DeviceFileInspector.inspect(resolver, Uri.parse(uriStr))
+                onProgress(index, total, info.displayName, 0f)
 
-            val alreadyUploaded = ledger.entries.value.any { it.contentUri == uriStr }
-            if (alreadyUploaded) {
-                skipped++
-                onProgress(index + 1, total, info.displayName, 1f)
-                return@forEachIndexed
-            }
-
-            try {
-                val remoteName = resolveClashFreeName(store, subFolder, info.displayName, info.size)
-                val remotePath = if (subFolder.isBlank()) remoteName else "$subFolder/$remoteName"
-                store.upload(remotePath, uriStr, info.size) { sent ->
-                    val fraction = if (info.size > 0) (sent.toFloat() / info.size).coerceIn(0f, 1f) else 0f
-                    onProgress(index, total, info.displayName, fraction)
+                // Same matching as the background sync: content URI first, then name + size
+                // (which also covers files that were renamed on upload).
+                if (ledger.isUploaded(uriStr, info.displayName, info.size)) {
+                    skipped++
+                    onProgress(index + 1, total, info.displayName, 1f)
+                    return@forEachIndexed
                 }
-                ledger.record(
-                    contentUri = uriStr,
-                    displayName = remoteName,
-                    size = info.size,
-                    takenAt = info.takenAt,
-                    remotePath = remotePath,
-                )
-                uploaded++
-                Diagnostics.log("Uploaded ${info.displayName} -> $remotePath")
-            } catch (e: Exception) {
-                errors += "${info.displayName}: ${e.message ?: "upload failed"}"
-                Diagnostics.log("Upload failed for ${info.displayName}: ${e.message}")
+
+                try {
+                    val resolution = ClashNames.resolve(subFolder, info.displayName, info.size) { path -> store.remoteState(path) }
+                    when (resolution) {
+                        is ClashResolution.CannotCheck -> {
+                            // Never guess: writing without knowing what is there could overwrite a
+                            // different file. Counted as failed so the next run retries it.
+                            errors += "${info.displayName}: couldn't check the destination (${resolution.reason})"
+                            Diagnostics.log("Upload skipped for ${info.displayName}: destination check failed: ${resolution.reason}")
+                        }
+                        is ClashResolution.Use -> {
+                            val remoteName = resolution.name
+                            val remotePath = if (subFolder.isBlank()) remoteName else "$subFolder/$remoteName"
+                            store.upload(remotePath, uriStr, info.size, replace = resolution.replaces) { sent ->
+                                val fraction = if (info.size > 0) (sent.toFloat() / info.size).coerceIn(0f, 1f) else 0f
+                                onProgress(index, total, info.displayName, fraction)
+                            }
+                            ledger.record(
+                                contentUri = uriStr,
+                                displayName = remoteName,
+                                size = info.size,
+                                takenAt = info.takenAt,
+                                remotePath = remotePath,
+                                originalName = info.displayName,
+                            )
+                            uploaded++
+                            Diagnostics.log("Uploaded ${info.displayName} -> $remotePath")
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    errors += "${info.displayName}: ${e.message ?: "upload failed"}"
+                    Diagnostics.log("Upload failed for ${info.displayName}: ${e.message}")
+                }
+                onProgress(index + 1, total, info.displayName, 1f)
             }
-            onProgress(index + 1, total, info.displayName, 1f)
+        } finally {
+            withContext(NonCancellable) { ledger.flush() }
         }
 
         if (uploaded > 0) {
@@ -113,30 +143,21 @@ class UploadService(
             try {
                 serverApi.refreshSection(libKey, token, settings.serverFolderPath.ifBlank { null })
                 Diagnostics.log("Requested Plex library refresh for section $libKey")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Diagnostics.log("Library refresh request failed: ${e.message}")
             }
         }
         // Give Plex a moment to walk the new files before asking the timeline to reflect them.
         delay(10_000)
-        runCatching { ledger.resolvePlexIds(media) }
-    }
-
-    /** Appends _1, _2... to the file name when a different-sized file already sits at that path. */
-    private suspend fun resolveClashFreeName(store: RemoteStore, subFolder: String, displayName: String, size: Long): String {
-        val dot = displayName.lastIndexOf('.')
-        val base = if (dot > 0) displayName.substring(0, dot) else displayName
-        val ext = if (dot > 0) displayName.substring(dot) else ""
-        var candidate = displayName
-        var suffix = 1
-        while (suffix <= 50) {
-            val path = if (subFolder.isBlank()) candidate else "$subFolder/$candidate"
-            val remoteSize = try { store.remoteSize(path) } catch (e: Exception) { null }
-            if (remoteSize == null || remoteSize == size) return candidate
-            candidate = "${base}_$suffix$ext"
-            suffix++
+        try {
+            ledger.resolvePlexIds(media)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Diagnostics.log("Couldn't match uploads to Plex items: ${e.message}")
         }
-        return candidate
     }
 
     private fun deviceDisplayName(): String = (Build.MODEL ?: Build.DEVICE ?: "device").trim().ifBlank { "device" }

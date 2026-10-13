@@ -118,6 +118,7 @@ class AppGraph(val app: Application) {
         json = json,
         filesDir = app.filesDir,
         scope = scope,
+        tokenCheck = PlexTokenValidator(plexTvApi)::check,
     )
 
     val updates: UpdateChecker = UpdateCheckerImpl(app, plainHttpClient, json)
@@ -132,17 +133,22 @@ class AppGraph(val app: Application) {
         .build()
 
     val uploadSettings = UploadSettingsStore(app)
-    val syncLedger = SyncLedger(app)
-    val libraryLocationResolver = LibraryLocationResolver(plexServerApi, session)
-    val uploadService = UploadService(
-        settingsStore = uploadSettings,
-        ledger = syncLedger,
-        media = media,
-        session = session,
-        resolver = app.contentResolver,
-        webDavClient = uploadHttpClient,
-        serverApi = plexServerApi,
-    )
+
+    // Lazy: the ledger can hold thousands of entries and its blocking load is not needed to show
+    // the first screen, so it no longer runs on the main thread during Application.onCreate.
+    val syncLedger by lazy { SyncLedger(app) }
+    val libraryLocationResolver by lazy { LibraryLocationResolver(plexServerApi, session) }
+    val uploadService by lazy {
+        UploadService(
+            settingsStore = uploadSettings,
+            ledger = syncLedger,
+            media = media,
+            session = session,
+            resolver = app.contentResolver,
+            webDavClient = uploadHttpClient,
+            serverApi = plexServerApi,
+        )
+    }
 
     init {
         // Keep the periodic sync job in step with the auto sync toggle and its Wi-Fi/charging
@@ -150,9 +156,19 @@ class AppGraph(val app: Application) {
         scope.launch { uploadSettings.settings.collect { s -> SyncScheduler.ensureScheduled(app, s) } }
     }
 
-    /** Shared Coil 3 image loader. The UI sets this as the SingletonImageLoader in MainActivity. */
+    /**
+     * Shared Coil 3 image loader. The UI sets this as the SingletonImageLoader in MainActivity.
+     * Plex images are cached under a key without the host and token (see ImageCacheKeys), so
+     * switching between LAN and remote, or signing in again, reuses the cached thumbnails.
+     */
     val imageLoader: ImageLoader = ImageLoader.Builder(app)
         .components {
+            add(
+                StablePlexCacheKeyInterceptor(
+                    serverId = { session.session.value.server?.clientIdentifier },
+                    activeUri = { session.session.value.active?.uri },
+                ),
+            )
             add(OkHttpNetworkFetcherFactory(callFactory = { plexServerHttpClient }))
             add(VideoFrameDecoder.Factory())
         }

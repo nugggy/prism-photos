@@ -35,6 +35,10 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -64,6 +68,9 @@ private fun extractRatingKey(key: String?): String? {
 
 private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 
+/** How long a plex.tv token check after a 401 is trusted before another 401 triggers a new one. */
+private const val TOKEN_RECHECK_MS = 60_000L
+
 class MediaRepositoryImpl(
     private val api: PlexServerApi,
     private val session: SessionStore,
@@ -73,6 +80,8 @@ class MediaRepositoryImpl(
     private val json: Json,
     private val filesDir: File,
     private val scope: CoroutineScope,
+    /** Asks plex.tv whether an account token is still valid; see [handleUnauthorised]. */
+    private val tokenCheck: suspend (token: String) -> TokenStatus = { TokenStatus.UNKNOWN },
 ) : MediaRepository {
 
     /** Every item (photo/clip) currently known for the selected library, including locked ones. */
@@ -129,51 +138,92 @@ class MediaRepositoryImpl(
 
     // ---- loading & caching ----
 
-    private fun cacheFile(): File? {
+    /** The server + library a timeline belongs to; refreshes and cache files are keyed by it. */
+    private data class LibraryTarget(val serverId: String, val libraryKey: String)
+
+    private fun currentTarget(): LibraryTarget? {
         val sess = session.session.value
         val serverId = sess.server?.clientIdentifier ?: return null
         val libKey = sess.libraryKey ?: return null
-        val dir = File(filesDir, "cache").apply { mkdirs() }
-        return File(dir, "timeline-$serverId-$libKey.json")
+        return LibraryTarget(serverId, libKey)
     }
 
+    private fun cacheFileFor(target: LibraryTarget): File {
+        val dir = File(filesDir, "cache").apply { mkdirs() }
+        return File(dir, "timeline-${target.serverId}-${target.libraryKey}.json")
+    }
+
+    private fun cacheFile(): File? = currentTarget()?.let { cacheFileFor(it) }
+
     private suspend fun loadCacheThenRefresh() {
-        val file = cacheFile()
-        if (file != null && file.exists()) {
-            runCatching {
+        val target = currentTarget() ?: return
+        val file = cacheFileFor(target)
+        val cached = if (file.exists()) {
+            attempt {
                 val text = withContext(Dispatchers.IO) { file.readText() }
-                val items = json.decodeFromString<List<MediaItem>>(text)
-                allItems.value = items
-                timelineStateFlow.value = LoadState.Loaded
-            }
+                json.decodeFromString<List<MediaItem>>(text)
+            }.getOrNull()
+        } else {
+            null
         }
+        if (currentTarget() != target) return
+        // Never leave the previous library's items on screen under the new one.
+        allItems.value = cached ?: emptyList()
+        timelineStateFlow.value = if (cached != null) LoadState.Loaded else LoadState.Idle
         refreshTimeline(force = true)
     }
 
     private var refreshJob: Deferred<Unit>? = null
+    private var refreshTarget: LibraryTarget? = null
 
     /**
      * Runs the refresh on the repository's own application scope so that navigating away from the
      * screen that asked for it cannot cancel the network requests. Callers that are cancelled simply
      * stop waiting; the refresh itself carries on and updates [timeline] when done.
+     *
+     * The in-flight refresh is keyed by server + library: a request for a different library
+     * cancels it and starts afresh rather than waiting on the wrong one, and [force] restarts a
+     * refresh of the same library (so a caller that just uploaded files sees them) while a plain
+     * request joins the one already running.
      */
     override suspend fun refreshTimeline(force: Boolean) {
         val sess = session.session.value
         if (!sess.hasLibrary) return
-        val libKey = sess.libraryKey ?: return
+        val target = currentTarget() ?: return
         val job = synchronized(this) {
             val existing = refreshJob
-            if (existing != null && existing.isActive) {
+            if (existing != null && existing.isActive && refreshTarget == target && !force) {
                 existing
             } else {
-                scope.async { doRefresh(libKey, sess.active?.uri, sess.active?.kind?.name) }.also { refreshJob = it }
+                existing?.cancel()
+                scope.async { doRefresh(target, sess.active?.uri, sess.active?.kind?.name) }.also {
+                    refreshJob = it
+                    refreshTarget = target
+                }
             }
         }
-        job.await()
+        try {
+            job.await()
+        } catch (e: CancellationException) {
+            // Either this caller was cancelled (rethrow) or the refresh it joined was superseded
+            // by a newer one, which will publish the timeline instead.
+            currentCoroutineContext().ensureActive()
+        }
     }
 
-    private suspend fun doRefresh(libKey: String, uri: String?, kind: String?) {
-        timelineStateFlow.value = LoadState.Loading
+    /** Runs [block] (which publishes refresh results) only if [target] is still the selected library. */
+    private fun publishIfCurrent(target: LibraryTarget, block: () -> Unit): Boolean {
+        if (currentTarget() != target) {
+            Diagnostics.log("Dropping refresh result for library ${target.libraryKey}: the selection changed")
+            return false
+        }
+        block()
+        return true
+    }
+
+    private suspend fun doRefresh(target: LibraryTarget, uri: String?, kind: String?) {
+        val libKey = target.libraryKey
+        publishIfCurrent(target) { timelineStateFlow.value = LoadState.Loading }
         Diagnostics.log("Refreshing library $libKey via $uri ($kind)")
         // Plex 1.43 and later: the flat, paged timeline is all?clusterZoomLevel=1 (photos and videos together).
         // Plain type filters return nothing on those servers, so try this first.
@@ -183,9 +233,10 @@ class MediaRepositoryImpl(
         if (flatItems.isNotEmpty()) {
             val merged = flatItems.distinctBy { it.id }.sortedByDescending { it.takenAt }
             Diagnostics.log("Timeline ready: ${merged.size} items (${merged.count { !it.isVideo }} photos, ${merged.count { it.isVideo }} videos)")
-            allItems.value = merged
-            persistCache(merged)
-            timelineStateFlow.value = LoadState.Loaded
+            if (publishIfCurrent(target) { allItems.value = merged }) {
+                persistCache(target, merged)
+                publishIfCurrent(target) { timelineStateFlow.value = LoadState.Loaded }
+            }
             return
         }
         val photos = attempt { fetchAllPages(libKey, type = 13) }
@@ -195,7 +246,7 @@ class MediaRepositoryImpl(
         if (photosErr != null && clipsErr != null) {
             val message = describe(photosErr)
             Diagnostics.log("Library refresh failed: $message")
-            timelineStateFlow.value = LoadState.Error(message)
+            publishIfCurrent(target) { timelineStateFlow.value = LoadState.Error(message) }
             return
         }
         var merged = mergeTimelines(photos.getOrDefault(emptyList()), clips.getOrDefault(emptyList()))
@@ -208,9 +259,10 @@ class MediaRepositoryImpl(
         }
         merged = merged.distinctBy { it.id }
         Diagnostics.log("Timeline ready: ${merged.size} items (${merged.count { !it.isVideo }} photos, ${merged.count { it.isVideo }} videos)")
-        allItems.value = merged
-        persistCache(merged)
-        timelineStateFlow.value = LoadState.Loaded
+        if (publishIfCurrent(target) { allItems.value = merged }) {
+            persistCache(target, merged)
+            publishIfCurrent(target) { timelineStateFlow.value = LoadState.Loaded }
+        }
     }
 
     /** Like runCatching, but never swallows coroutine cancellation. */
@@ -297,9 +349,10 @@ class MediaRepositoryImpl(
         else -> "${e::class.java.simpleName}: ${e.message ?: "no message"}"
     }
 
-    private suspend fun persistCache(items: List<MediaItem>) {
-        val file = cacheFile() ?: return
-        runCatching { withContext(Dispatchers.IO) { file.writeText(json.encodeToString(items)) } }
+    /** Writes [items] to [target]'s own cache file, never to whichever library is current by then. */
+    private suspend fun persistCache(target: LibraryTarget, items: List<MediaItem>) {
+        val file = cacheFileFor(target)
+        attempt { withContext(Dispatchers.IO) { file.writeText(json.encodeToString(items)) } }
     }
 
     private suspend fun fetchAllPages(libraryKey: String, type: Int): List<MediaItem> {
@@ -386,11 +439,13 @@ class MediaRepositoryImpl(
 
     private fun buildAlbumContents(mc: MetadataMediaContainerDto, libraryKey: String): AlbumContents {
         val lockedAlbumIds = local.lockedAlbumIds.value
-        val lockedItemIds = local.lockedItemIds.value
         val albums = (mc.directory.filter { it.type == "photoalbum" || it.key?.endsWith("/children") == true }.map { mapAlbumFromDirectory(it, libraryKey) } +
             mc.metadata.filter { isAlbumDto(it) }.map { mapAlbumFromMetadata(it, libraryKey) })
             .filter { it.id.isNotBlank() && it.id !in lockedAlbumIds }
             .distinctBy { it.id }
+        // Individually locked items are hidden here. Items are not filtered by their album's lock,
+        // because a locked album's own contents are opened from the Locked tab, behind the gate.
+        val lockedItemIds = local.lockedItemIds.value
         val items = mc.metadata.filter { isMediaItem(it) }
             .map { mapItem(it, libraryKey) }
             .filter { it.id !in lockedItemIds }
@@ -423,16 +478,26 @@ class MediaRepositoryImpl(
 
     // ---- My albums (Plex photo playlists) ----
 
-    private var cachedMachineId: String? = null
+    /** (server key, machine identifier); the key is checked on every use so a server switch refetches. */
+    @Volatile
+    private var cachedMachineId: Pair<String, String>? = null
+
+    /** Identifies the selected server. Manual connections all share the "manual" placeholder, so their URL is included. */
+    private fun machineIdCacheKey(): String {
+        val sess = session.session.value
+        val serverId = sess.server?.clientIdentifier.orEmpty()
+        return if (serverId.isBlank() || serverId == "manual") "manual|${sess.active?.uri.orEmpty()}" else serverId
+    }
 
     /** The server's own machine identifier from /identity (the session value is a placeholder for manual connections). */
     private suspend fun machineIdentifier(): String {
-        cachedMachineId?.let { return it }
+        val cacheKey = machineIdCacheKey()
+        cachedMachineId?.let { (key, id) -> if (key == cacheKey) return id }
         val fromServer = attempt { apiCall { identity() }.mediaContainer.machineIdentifier }.getOrNull()
         val id = fromServer?.takeIf { it.isNotBlank() }
             ?: session.session.value.server?.clientIdentifier?.takeIf { it.isNotBlank() && it != "manual" }
             ?: throw IllegalStateException("Could not read the server identifier")
-        cachedMachineId = id
+        cachedMachineId = cacheKey to id
         return id
     }
 
@@ -461,14 +526,16 @@ class MediaRepositoryImpl(
 
     override suspend fun myAlbumItems(albumId: String): Result<List<MediaItem>> = runCatching {
         val libKey = session.session.value.libraryKey.orEmpty()
-        apiCall { token -> playlistItems(albumId, token) }.mediaContainer.metadata
+        val items = apiCall { token -> playlistItems(albumId, token) }.mediaContainer.metadata
             .filter { isMediaItem(it) }
             .map { mapItem(it, libKey) }
+        // Locked items only ever show behind the lock gate (the Locked tab), never in a playlist.
+        filterLocked(items)
     }
 
     override suspend fun createMyAlbum(title: String, itemIds: List<String>): Result<Album> = runCatching {
         val ids = itemIds.ifEmpty { listOf(allItems.value.firstOrNull()?.id ?: throw IllegalStateException("Choose at least one photo for a new album")) }
-        val created = apiCall { token -> createPlaylist(token, title, playlistUri(ids)) }.mediaContainer.metadata.firstOrNull()
+        val created = apiWrite { token -> createPlaylist(token, title, playlistUri(ids)) }.mediaContainer.metadata.firstOrNull()
             ?: throw IllegalStateException("The server did not return the new album")
         val album = mapPlaylist(created)
         // Plex needs at least one item to create a playlist; if the caller wanted it empty, remove the seed again.
@@ -478,7 +545,7 @@ class MediaRepositoryImpl(
 
     override suspend fun addToMyAlbum(albumId: String, itemIds: List<String>): Result<Unit> = runCatching {
         if (itemIds.isEmpty()) return@runCatching
-        val response = apiCall { token -> addPlaylistItems(albumId, token, playlistUri(itemIds)) }
+        val response = apiWrite { token -> addPlaylistItems(albumId, token, playlistUri(itemIds)) }
         if (!response.isSuccessful) throw IllegalStateException("Could not add to the album (HTTP ${response.code()})")
     }
 
@@ -486,16 +553,16 @@ class MediaRepositoryImpl(
         val entries = apiCall { token -> playlistItems(albumId, token) }.mediaContainer.metadata
         val wanted = itemIds.toSet()
         entries.filter { (it.ratingKey ?: extractRatingKey(it.key)) in wanted && it.playlistItemID != null }
-            .forEach { entry -> apiCall { token -> removePlaylistItem(albumId, entry.playlistItemID!!, token) } }
+            .forEach { entry -> apiWrite { token -> removePlaylistItem(albumId, entry.playlistItemID!!, token) } }
     }
 
     override suspend fun renameMyAlbum(albumId: String, title: String): Result<Unit> = runCatching {
-        val response = apiCall { token -> renamePlaylist(albumId, token, title) }
+        val response = apiWrite { token -> renamePlaylist(albumId, token, title) }
         if (!response.isSuccessful) throw IllegalStateException("Could not rename the album (HTTP ${response.code()})")
     }
 
     override suspend fun deleteMyAlbum(albumId: String): Result<Unit> = runCatching {
-        val response = apiCall { token -> deletePlaylist(albumId, token) }
+        val response = apiWrite { token -> deletePlaylist(albumId, token) }
         if (!response.isSuccessful) throw IllegalStateException("Could not delete the album (HTTP ${response.code()})")
     }
 
@@ -554,7 +621,7 @@ class MediaRepositoryImpl(
         val previous = allItems.value
         allItems.update { list -> list.map { if (it.id == id) it.copy(favourite = favourite) else it } }
         return try {
-            apiCall { token -> rate(id, if (favourite) 10 else -1, token) }
+            apiWrite { token -> rate(id, if (favourite) 10 else -1, token) }
             Result.success(Unit)
         } catch (e: Exception) {
             allItems.value = previous
@@ -594,7 +661,7 @@ class MediaRepositoryImpl(
     }
 
     override suspend fun delete(id: String): Result<Unit> = try {
-        apiCall { token -> deleteMetadata(id, token) }
+        apiWrite { token -> deleteMetadata(id, token) }
         allItems.update { list -> list.filterNot { it.id == id } }
         Result.success(Unit)
     } catch (e: HttpException) {
@@ -622,7 +689,7 @@ class MediaRepositoryImpl(
         val allFields = linkedMapOf("type" to type.toString(), "id" to id)
         allFields.putAll(fields)
         return try {
-            apiCall { token -> edit(libKey, allFields, token) }
+            apiWrite { token -> edit(libKey, allFields, token) }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -687,31 +754,78 @@ class MediaRepositoryImpl(
     // ---- network plumbing ----
 
     /**
-     * Runs a Plex server call, clearing the session on 401 and, on a connection
-     * failure, re-running the connection chooser once and retrying.
+     * Runs a Plex server read. On a 401 the token is re-checked against plex.tv before anything
+     * is cleared (see [handleUnauthorised]); on a connection failure the connection chooser runs
+     * again and, because reads are safe to repeat, the request is retried once. See
+     * [ApiRetryPolicy] for the full decision table.
      */
-    private suspend fun <T> apiCall(block: suspend PlexServerApi.(token: String) -> T): T {
+    private suspend fun <T> apiCall(block: suspend PlexServerApi.(token: String) -> T): T = runApi(idempotent = true, block)
+
+    /**
+     * Runs a Plex server write (POST/PUT/DELETE). Same as [apiCall] except it is never repeated
+     * after a connection failure: the server may already have applied it, and repeating
+     * createPlaylist or addPlaylistItems would duplicate albums or entries.
+     */
+    private suspend fun <T> apiWrite(block: suspend PlexServerApi.(token: String) -> T): T = runApi(idempotent = false, block)
+
+    private suspend fun <T> runApi(idempotent: Boolean, block: suspend PlexServerApi.(token: String) -> T): T {
         val sess = session.session.value
         val token = sess.serverToken ?: throw IOException("Not signed in")
         return try {
             api.block(token)
-        } catch (e: HttpException) {
-            if (e.code() == 401) session.clear()
+        } catch (e: CancellationException) {
             throw e
-        } catch (e: IOException) {
-            Diagnostics.log("Request failed (${e::class.java.simpleName}: ${e.message}); checking connections")
-            val server = sess.server
-            if (server != null) {
-                val mode = settings.settings.value.connectionMode
-                val manualUrl = settings.settings.value.manualServerUrl
-                val newActive = connectionChooser.choose(server.connections, mode, manualUrl)
-                if (newActive != null) {
-                    Diagnostics.log("Reconnected via ${newActive.uri} (${newActive.kind}); retrying once")
-                    session.update { it.copy(active = newActive) }
-                    return api.block(token)
+        } catch (e: Exception) {
+            when (ApiRetryPolicy.onFailure(e, idempotent)) {
+                ApiFailureAction.REVALIDATE_TOKEN -> {
+                    handleUnauthorised(token)
+                    throw e
                 }
+                ApiFailureAction.RECONNECT_AND_RETRY, ApiFailureAction.RECONNECT_ONLY -> {
+                    Diagnostics.log("Request failed (${e::class.java.simpleName}: ${e.message}); checking connections")
+                    val server = sess.server ?: throw e
+                    val mode = settings.settings.value.connectionMode
+                    val manualUrl = settings.settings.value.manualServerUrl
+                    val newActive = connectionChooser.choose(server.connections, mode, manualUrl) ?: throw e
+                    session.update { it.copy(active = newActive) }
+                    if (!idempotent) {
+                        Diagnostics.log("Reconnected via ${newActive.uri} (${newActive.kind}); not repeating the change in case it already went through")
+                        throw e
+                    }
+                    Diagnostics.log("Reconnected via ${newActive.uri} (${newActive.kind}); retrying once")
+                    api.block(token)
+                }
+                ApiFailureAction.RETHROW -> throw e
             }
-            throw e
+        }
+    }
+
+    /** Serialises 401 handling so a burst of failing requests produces one plex.tv check, not dozens. */
+    private val authMutex = Mutex()
+    private var lastTokenCheck: Pair<String, Long>? = null
+
+    /**
+     * A single 401 can be a server hiccup or a stale server token rather than a revoked sign in,
+     * so plex.tv is asked about the account token first. Only a definite "invalid" from plex.tv
+     * clears the session; "valid" or "could not check" keep it, and the error surfaces as usual.
+     */
+    private suspend fun handleUnauthorised(failedToken: String) {
+        authMutex.withLock {
+            val sess = session.session.value
+            // Already cleared or replaced by an earlier 401 or a new sign in.
+            if (sess.serverToken != failedToken) return
+            val now = System.currentTimeMillis()
+            lastTokenCheck?.let { (token, at) -> if (token == failedToken && now - at < TOKEN_RECHECK_MS) return }
+            val status = tokenCheck(sess.accountToken ?: failedToken)
+            lastTokenCheck = failedToken to now
+            when (status) {
+                TokenStatus.INVALID -> {
+                    Diagnostics.log("Server returned 401 and plex.tv rejected the token; signing out")
+                    session.clear()
+                }
+                TokenStatus.VALID -> Diagnostics.log("Server returned 401 but plex.tv accepts the token; staying signed in")
+                TokenStatus.UNKNOWN -> Diagnostics.log("Server returned 401 and plex.tv could not be reached to check; staying signed in")
+            }
         }
     }
 

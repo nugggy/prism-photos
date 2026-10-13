@@ -35,7 +35,26 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
 
+      # Minified (R8) release build, unsigned, so missing keep rules show up here rather than as a
+      # crash in a published release.
+      - name: Build minified release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      # Lint currently reports a pre-existing error in ui/viewer/ViewerScreen.kt
+      # (UnusedMaterial3ScaffoldPaddingParameter), so it does not fail the build yet; the report
+      # is uploaded below. Remove continue-on-error once lint is clean.
+      - name: Lint
+        run: ./gradlew lintDebug --no-daemon
+        continue-on-error: true
+
       - uses: actions/upload-artifact@v4
         with:
           name: prism-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore

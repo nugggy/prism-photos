@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -21,20 +23,30 @@ private val Context.sessionDataStore by preferencesDataStore(name = "prism_sessi
 private val SESSION_KEY = stringPreferencesKey("session_json")
 
 /**
- * Session persisted to DataStore as JSON. Reads synchronously (runBlocking) on init so
- * [session] is already correct - including a stable, persisted client identifier - the
- * moment the app graph is built, before any network call needs it.
+ * Session persisted to DataStore as JSON, encrypted with [SecretCipher] because it holds the Plex
+ * account and server tokens. Reads synchronously (runBlocking) on init so [session] is already
+ * correct - including a stable, persisted client identifier - the moment the app graph is built,
+ * before any network call needs it. A plaintext session from an older version is re-saved
+ * encrypted on first read.
  */
 class SessionStoreImpl(private val app: Application) : SessionStore {
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** Serialises read-modify-write so concurrent updates cannot overwrite each other. */
+    private val mutex = Mutex()
+
     private val state: MutableStateFlow<Session>
 
     init {
+        var needsSave = false
         val loaded = runBlocking {
             runCatching {
                 val prefs = app.sessionDataStore.data.first()
-                prefs[SESSION_KEY]?.let { json.decodeFromString<Session>(it) }
+                prefs[SESSION_KEY]?.let { stored ->
+                    val (text, wasPlain) = SecretCipher.read(stored) ?: return@let null
+                    needsSave = wasPlain
+                    json.decodeFromString<Session>(text)
+                }
             }.getOrNull()
         }
         val initial = when {
@@ -43,7 +55,7 @@ class SessionStoreImpl(private val app: Application) : SessionStore {
             else -> loaded
         }
         state = MutableStateFlow(initial)
-        if (loaded == null || loaded.clientId.isBlank()) {
+        if (loaded == null || loaded.clientId.isBlank() || needsSave) {
             runBlocking { persist(initial) }
         }
     }
@@ -51,20 +63,25 @@ class SessionStoreImpl(private val app: Application) : SessionStore {
     override val session: StateFlow<Session> = state.asStateFlow()
 
     override suspend fun update(transform: (Session) -> Session) {
-        val next = transform(state.value)
-        state.value = next
-        persist(next)
+        mutex.withLock {
+            val next = transform(state.value)
+            state.value = next
+            persist(next)
+        }
     }
 
     override suspend fun clear() {
-        val next = Session(clientId = state.value.clientId)
-        state.value = next
-        persist(next)
+        mutex.withLock {
+            val next = Session(clientId = state.value.clientId)
+            state.value = next
+            persist(next)
+        }
     }
 
     private suspend fun persist(session: Session) {
         runCatching {
-            app.sessionDataStore.edit { it[SESSION_KEY] = json.encodeToString(session) }
+            val stored = SecretCipher.encryptOrPlain(json.encodeToString(session))
+            app.sessionDataStore.edit { it[SESSION_KEY] = stored }
         }
     }
 }

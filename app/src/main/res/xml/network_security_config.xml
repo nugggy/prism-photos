@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cleartext has to stay allowed in general: Plex reports plain http:// LAN connections to raw
+     private IPs (http://192.168.1.20:32400), people enter such manual URLs, and NAS WebDAV
+     servers often have no certificate. Network security config cannot allow-list IP ranges, so a
+     default deny would break LAN Plex. Instead the hosts that carry account tokens or the app
+     update are pinned to TLS here, and WebDAV Basic auth over http:// to non-private hosts is
+     refused at runtime (data/upload/InsecureUrl.kt). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">plex.tv</domain>
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+    </domain-config>
+</network-security-config>
