@@ -71,6 +71,9 @@ private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 /** How long a plex.tv token check after a 401 is trusted before another 401 triggers a new one. */
 private const val TOKEN_RECHECK_MS = 60_000L
 
+/** How long the contents of locked albums are trusted before they are read from the server again. */
+private const val LOCKED_SCOPE_TTL_MS = 5 * 60_000L
+
 class MediaRepositoryImpl(
     private val api: PlexServerApi,
     private val session: SessionStore,
@@ -96,9 +99,32 @@ class MediaRepositoryImpl(
     private val extraLocked = MutableStateFlow<Map<String, MediaItem>>(emptyMap())
     private val extraLockedInFlight = java.util.Collections.synchronizedSet(HashSet<String>())
 
+    /**
+     * Everything inside the locked albums, nested albums included. An item only knows its direct
+     * album, so a photo in a sub-folder of a locked album (or one the server returns without a
+     * parent) would otherwise slip past the lock into the timeline, favourites and search.
+     */
+    private data class LockedAlbumScope(
+        val target: LibraryTarget?,
+        /** The locked album ids this was resolved for. */
+        val roots: Set<String>,
+        /** [roots] plus every album nested inside them. */
+        val albumIds: Set<String>,
+        val itemIds: Set<String>,
+        /** False when an album could not be read, so the next request tries again. */
+        val complete: Boolean,
+        val resolvedAt: Long,
+    ) {
+        /** A scope resolved for fewer locked albums is still right; one that includes an unlocked album is not. */
+        fun usableFor(lockedAlbums: Set<String>) = lockedAlbums.containsAll(roots)
+    }
+
+    private val lockedScope = MutableStateFlow(LockedAlbumScope(null, emptySet(), emptySet(), emptySet(), true, 0L))
+    private val lockedScopeMutex = Mutex()
+
     init {
-        combine(allItems, local.lockedItemIds, local.lockedAlbumIds, extraLocked) { all, lockedIds, lockedAlbums, extras ->
-            listOf(all, lockedIds, lockedAlbums, extras)
+        combine(allItems, local.lockedItemIds, local.lockedAlbumIds, extraLocked, lockedScope) { all, lockedIds, lockedAlbums, extras, scoped ->
+            listOf(all, lockedIds, lockedAlbums, extras, scoped)
         }.onEach { parts ->
             @Suppress("UNCHECKED_CAST")
             val all = parts[0] as List<MediaItem>
@@ -108,7 +134,7 @@ class MediaRepositoryImpl(
             val lockedAlbums = parts[2] as Set<String>
             @Suppress("UNCHECKED_CAST")
             val extras = parts[3] as Map<String, MediaItem>
-            fun isLocked(item: MediaItem) = item.id in lockedIds || (item.albumId != null && item.albumId in lockedAlbums)
+            val isLocked = lockedPredicate(lockedIds, lockedAlbums, parts[4] as LockedAlbumScope)
             visibleFlow.value = all.filterNot { isLocked(it) }
             val known = all.filter { isLocked(it) }
             val knownIds = known.map { it.id }.toSet()
@@ -130,6 +156,71 @@ class MediaRepositoryImpl(
             .distinctUntilChanged()
             .onEach { (serverId, libraryKey) -> if (serverId != null && libraryKey != null) loadCacheThenRefresh() }
             .launchIn(scope)
+
+        combine(local.lockedAlbumIds, session.session.map { it.server?.clientIdentifier to it.libraryKey }) { albums, target -> albums to target }
+            .distinctUntilChanged()
+            .onEach { attempt { resolveLockedScope() } }
+            .launchIn(scope)
+    }
+
+    private fun lockedPredicate(lockedIds: Set<String>, lockedAlbums: Set<String>, scoped: LockedAlbumScope): (MediaItem) -> Boolean {
+        val usable = scoped.usableFor(lockedAlbums)
+        return { item ->
+            item.id in lockedIds ||
+                (item.albumId != null && (item.albumId in lockedAlbums || (usable && item.albumId in scoped.albumIds))) ||
+                (usable && item.id in scoped.itemIds)
+        }
+    }
+
+    /**
+     * Walks each locked album and the albums nested in it. The result is kept until the locked
+     * albums or the library change, a read failed, or it is more than a few minutes old (so photos
+     * added to a locked folder on the server are picked up).
+     */
+    private suspend fun resolveLockedScope(): LockedAlbumScope {
+        fun current(): LockedAlbumScope? {
+            val cached = lockedScope.value
+            val fresh = System.currentTimeMillis() - cached.resolvedAt < LOCKED_SCOPE_TTL_MS
+            return cached.takeIf { it.target == currentTarget() && it.roots == local.lockedAlbumIds.value && it.complete && fresh }
+        }
+        current()?.let { return it }
+        return lockedScopeMutex.withLock {
+            current()?.let { return@withLock it }
+            val target = currentTarget()
+            val roots = local.lockedAlbumIds.value
+            val libKey = target?.libraryKey
+            if (libKey == null || roots.isEmpty()) {
+                return@withLock LockedAlbumScope(target, roots, roots, emptySet(), libKey != null, System.currentTimeMillis()).also { lockedScope.value = it }
+            }
+            val albumIds = java.util.Collections.synchronizedSet(HashSet<String>(roots))
+            val itemIds = java.util.Collections.synchronizedSet(HashSet<String>())
+            val failed = java.util.concurrent.atomic.AtomicBoolean(false)
+            var queue = roots.toList()
+            val semaphore = Semaphore(4)
+            while (queue.isNotEmpty() && albumIds.size < 5000) {
+                val next = java.util.concurrent.ConcurrentLinkedQueue<String>()
+                kotlinx.coroutines.coroutineScope {
+                    queue.map { albumId ->
+                        async {
+                            semaphore.withPermit {
+                                val mc = attempt { apiCall { token -> children(albumId, token) }.mediaContainer }
+                                    .onFailure { failed.set(true); Diagnostics.log("Locked album $albumId failed: ${describe(it)}") }
+                                    .getOrNull() ?: return@withPermit
+                                mc.metadata.filter { isMediaItem(it) }.forEach { dto -> (dto.ratingKey ?: extractRatingKey(dto.key))?.let { itemIds.add(it) } }
+                                val nested = mc.directory.filter { it.type == "photoalbum" || it.key?.endsWith("/children") == true }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) } +
+                                    mc.metadata.filter { isAlbumDto(it) }.mapNotNull { it.ratingKey ?: extractRatingKey(it.key) }
+                                nested.forEach { if (albumIds.add(it)) next.add(it) }
+                            }
+                        }
+                    }.awaitAll()
+                }
+                queue = next.toList()
+            }
+            val resolved = LockedAlbumScope(target, roots, albumIds.toSet(), itemIds.toSet(), !failed.get(), System.currentTimeMillis())
+            // The lock may have changed while walking; only publish a result that still applies.
+            if (currentTarget() == target && local.lockedAlbumIds.value == roots) lockedScope.value = resolved
+            resolved
+        }
     }
 
     override val timeline: StateFlow<List<MediaItem>> = visibleFlow.asStateFlow()
@@ -596,10 +687,11 @@ class MediaRepositoryImpl(
         filterLocked((photos + clips + byTitle).distinctBy { it.id }).sortedByDescending { it.takenAt }
     }
 
-    private fun filterLocked(items: List<MediaItem>): List<MediaItem> {
-        val lockedItemIds = local.lockedItemIds.value
-        val lockedAlbumIds = local.lockedAlbumIds.value
-        return items.filter { it.id !in lockedItemIds && (it.albumId == null || it.albumId !in lockedAlbumIds) }
+    private suspend fun filterLocked(items: List<MediaItem>): List<MediaItem> {
+        // If the locked albums cannot be read right now, the direct album check below still applies.
+        val scoped = attempt { resolveLockedScope() }.getOrElse { lockedScope.value }
+        val isLocked = lockedPredicate(local.lockedItemIds.value, local.lockedAlbumIds.value, scoped)
+        return items.filterNot { isLocked(it) }
     }
 
     // ---- single items ----
