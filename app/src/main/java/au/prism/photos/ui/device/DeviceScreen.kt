@@ -2,7 +2,7 @@ package au.prism.photos.ui.device
 
 import androidx.compose.ui.res.stringResource
 import au.prism.photos.R
-import au.prism.photos.ui.components.downloadResultMessage
+import au.prism.photos.ui.components.downloadWithProgress
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import android.Manifest
@@ -83,7 +83,6 @@ import au.prism.photos.ui.share.ShareSheet
 import au.prism.photos.ui.theme.PlexGold
 import au.prism.photos.ui.upload.UploadScreen
 import au.prism.photos.ui.viewer.DeleteConfirmDialog
-import au.prism.photos.ui.viewer.MediaActions
 import au.prism.photos.ui.viewer.SyncedDeleteConfirmDialog
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -193,8 +192,7 @@ fun DeviceScreen(
                     onShare = { shareItems = selectedItems },
                     onDownload = {
                         scope.launch {
-                            val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result, R.plurals.selection_saved))
+                            downloadWithProgress(context, snackbarHostState, selectedItems, R.plurals.selection_saved)
                         }
                     },
                     onToggleFavourite = null,

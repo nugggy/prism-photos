@@ -32,6 +32,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -292,8 +293,14 @@ fun ViewerScreen(
                         if (currentItem.isVideo) (onEditVideo ?: onEdit)(idOrUri) else onEdit(idOrUri)
                     },
                     onDownload = {
+                        val item = currentItem
                         scope.launch {
-                            MediaActions.download(context, listOf(currentItem))
+                            val progress = launch {
+                                snackbarHostState.showSnackbar(context.resources.getQuantityString(R.plurals.selection_downloading, 1, 1), duration = SnackbarDuration.Indefinite)
+                            }
+                            val result = MediaActions.download(context, listOf(item))
+                            progress.cancel()
+                            result
                                 .onSuccess { count -> snackbarHostState.showSnackbar(if (count > 0) context.getString(R.string.viewer_saved_to_downloads) else saveFailedMessage) }
                                 .onFailure { e -> snackbarHostState.showSnackbar(e.message ?: saveFailedMessage) }
                         }

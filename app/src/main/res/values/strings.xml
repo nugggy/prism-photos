@@ -119,6 +119,10 @@
         <item quantity="one">Downloaded %d item</item>
         <item quantity="other">Downloaded %d items</item>
     </plurals>
+    <plurals name="selection_downloading">
+        <item quantity="one">Downloading %d item…</item>
+        <item quantity="other">Downloading %d items…</item>
+    </plurals>
     <plurals name="selection_saved">
         <item quantity="one">Saved %d item</item>
         <item quantity="other">Saved %d items</item>

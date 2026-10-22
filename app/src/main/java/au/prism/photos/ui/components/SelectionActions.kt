@@ -1,8 +1,10 @@
 package au.prism.photos.ui.components
 
+import android.content.Context
 import android.content.res.Resources
 import androidx.activity.compose.BackHandler
 import androidx.annotation.PluralsRes
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -13,7 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import au.prism.photos.PrismApp
 import au.prism.photos.R
 import au.prism.photos.domain.MediaItem
+import au.prism.photos.ui.viewer.MediaActions
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /** While a grid is in multi-select mode, Back clears the selection instead of leaving the screen. */
@@ -76,6 +80,25 @@ class SelectionActions internal constructor(
 fun downloadResultMessage(resources: Resources, result: Result<Int>, @PluralsRes success: Int = R.plurals.selection_downloaded): String {
     val count = result.getOrNull() ?: return resources.getString(R.string.selection_download_failed)
     return resources.getQuantityString(success, count, count)
+}
+
+/**
+ * Downloads [items] with a "Downloading…" snackbar up until it finishes, so the button never looks
+ * dead on a slow remote connection, then shows [downloadResultMessage].
+ */
+suspend fun downloadWithProgress(
+    context: Context,
+    snackbarHostState: SnackbarHostState,
+    items: List<MediaItem>,
+    @PluralsRes success: Int = R.plurals.selection_downloaded,
+) = coroutineScope {
+    val resources = context.resources
+    val progress = launch {
+        snackbarHostState.showSnackbar(resources.getQuantityString(R.plurals.selection_downloading, items.size, items.size), duration = SnackbarDuration.Indefinite)
+    }
+    val result = MediaActions.download(context, items)
+    progress.cancel()
+    snackbarHostState.showSnackbar(downloadResultMessage(resources, result, success))
 }
 
 @Composable

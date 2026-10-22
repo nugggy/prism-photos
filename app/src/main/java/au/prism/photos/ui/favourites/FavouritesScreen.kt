@@ -2,7 +2,7 @@ package au.prism.photos.ui.favourites
 
 import androidx.compose.ui.res.stringResource
 import au.prism.photos.R
-import au.prism.photos.ui.components.downloadResultMessage
+import au.prism.photos.ui.components.downloadWithProgress
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Box
@@ -38,7 +38,6 @@ import au.prism.photos.ui.components.SelectableMediaGrid
 import au.prism.photos.ui.components.SelectionState
 import au.prism.photos.ui.components.SelectionTopBar
 import au.prism.photos.ui.share.ShareSheet
-import au.prism.photos.ui.viewer.MediaActions
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,8 +92,7 @@ fun FavouritesScreen(
                     onShare = { shareItems = selectedItems },
                     onDownload = {
                         scope.launch {
-                            val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
+                            downloadWithProgress(context, snackbarHostState, selectedItems)
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },

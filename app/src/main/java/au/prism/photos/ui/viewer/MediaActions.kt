@@ -8,6 +8,7 @@ import android.graphics.ImageDecoder
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import androidx.core.net.toUri
 import au.prism.photos.PrismApp
 import au.prism.photos.R
@@ -60,6 +61,7 @@ object MediaActions {
             markDone(resolver, uri)
             true
         } catch (e: Exception) {
+            Log.w("PrismDownload", "Download failed for ${item.id}", e)
             resolver.delete(uri, null, null)
             false
         }
@@ -78,6 +80,7 @@ object MediaActions {
             markDone(resolver, uri)
             true
         } catch (e: Exception) {
+            Log.w("PrismDownload", "Download failed for ${item.id}", e)
             resolver.delete(uri, null, null)
             false
         }

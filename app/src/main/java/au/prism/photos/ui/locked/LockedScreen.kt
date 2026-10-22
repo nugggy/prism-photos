@@ -3,7 +3,7 @@ package au.prism.photos.ui.locked
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import au.prism.photos.R
-import au.prism.photos.ui.components.downloadResultMessage
+import au.prism.photos.ui.components.downloadWithProgress
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +62,6 @@ import au.prism.photos.ui.components.SelectionState
 import au.prism.photos.ui.lock.LockGate
 import au.prism.photos.ui.share.ShareSheet
 import au.prism.photos.ui.theme.PlexGold
-import au.prism.photos.ui.viewer.MediaActions
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,8 +101,7 @@ fun LockedScreen(
                             IconButton(onClick = { shareItems = selectedItems }) { Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share)) }
                             IconButton(onClick = {
                                 scope.launch {
-                                    val result = MediaActions.download(context, selectedItems)
-                                    snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
+                                    downloadWithProgress(context, snackbarHostState, selectedItems)
                                 }
                             }) { Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.selection_download)) }
                             IconButton(onClick = { selectionActions.unlock(selection.selected) }) {

@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -53,15 +52,15 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Shows a locked screen and prompts BiometricPrompt (fingerprint, face or device credential).
- * Once unlocked for this app session, renders [content] with the window marked secure (no
- * screenshots, blank recents thumbnail). If [LockSession] relocks while [content] is showing
+ * Once unlocked for this app session, renders [content] with a blank recents thumbnail. Screenshots
+ * and downloads are allowed. If [LockSession] relocks while [content] is showing
  * (the app was in the background too long), the lock screen replaces it straight away.
  */
 @Composable
 fun LockGate(content: @Composable () -> Unit) {
     val unlocked by LockSession.unlocked.collectAsStateWithLifecycle()
     if (unlocked) {
-        SecureWindow()
+        HideFromRecents()
         content()
     } else {
         LockScreen(onUnlocked = { LockSession.unlock() })
@@ -103,40 +102,36 @@ object LockSession {
 }
 
 /**
- * Marks the window FLAG_SECURE while composed, so locked content never shows in screenshots or the
- * recents thumbnail. Reference counted: during a navigation transition two gated screens can be on
- * screen at once, and the flag must stay until the last one leaves.
+ * Blanks the recents thumbnail while composed (Android 13 and later), so locked content doesn't
+ * show in the app switcher. Screenshots and screen recording are deliberately still allowed.
+ * Reference counted: during a navigation transition two gated screens can be on screen at once,
+ * and the setting must stay until the last one leaves.
  */
 @Composable
-fun SecureWindow() {
+fun HideFromRecents() {
     val activity = LocalContext.current.findActivity()
     DisposableEffect(activity) {
-        if (activity != null) SecureWindowCounter.acquire(activity)
-        onDispose { if (activity != null) SecureWindowCounter.release(activity) }
+        if (activity != null) HideFromRecentsCounter.acquire(activity)
+        onDispose { if (activity != null) HideFromRecentsCounter.release(activity) }
     }
 }
 
-private object SecureWindowCounter {
+private object HideFromRecentsCounter {
     private var count = 0
 
     fun acquire(activity: Activity) {
         count++
-        if (count == 1) apply(activity, secure = true)
+        if (count == 1) apply(activity, hidden = true)
     }
 
     fun release(activity: Activity) {
         count = (count - 1).coerceAtLeast(0)
-        if (count == 0) apply(activity, secure = false)
+        if (count == 0) apply(activity, hidden = false)
     }
 
-    private fun apply(activity: Activity, secure: Boolean) {
-        if (secure) {
-            activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        } else {
-            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
+    private fun apply(activity: Activity, hidden: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            activity.setRecentsScreenshotEnabled(!secure)
+            activity.setRecentsScreenshotEnabled(!hidden)
         }
     }
 }

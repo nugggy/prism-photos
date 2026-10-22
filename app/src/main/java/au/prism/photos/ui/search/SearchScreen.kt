@@ -1,6 +1,6 @@
 package au.prism.photos.ui.search
 
-import au.prism.photos.ui.components.downloadResultMessage
+import au.prism.photos.ui.components.downloadWithProgress
 import au.prism.photos.ui.components.rememberSelectionActions
 import au.prism.photos.ui.components.SelectionBackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +55,6 @@ import au.prism.photos.ui.components.SelectableMediaGrid
 import au.prism.photos.ui.components.SelectionState
 import au.prism.photos.ui.components.SelectionTopBar
 import au.prism.photos.ui.share.ShareSheet
-import au.prism.photos.ui.viewer.MediaActions
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.delay
@@ -135,8 +134,7 @@ fun SearchScreen(
                     onShare = { shareItems = selectedItems },
                     onDownload = {
                         scope.launch {
-                            val result = MediaActions.download(context, selectedItems)
-                            snackbarHostState.showSnackbar(downloadResultMessage(context.resources, result))
+                            downloadWithProgress(context, snackbarHostState, selectedItems)
                         }
                     },
                     onToggleFavourite = { selectionActions.toggleFavourite(selectedItems) },
